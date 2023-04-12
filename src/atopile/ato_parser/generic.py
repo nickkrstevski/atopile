@@ -1,27 +1,33 @@
-"""
-A parser for ato files.
-
-Unfortunately, this kiiinda needs the ato_ prefix.
-Otherwise importing it collides with the inbuilt `parsing` module.
-"""
-
-from sandbox import datamodel
 import pyparsing as pp
+from . import ast
+
+dot = pp.Literal('.')
 
 identifier = pp.Word(pp.alphas + "_", pp.alphanums + "_")
 value = pp.Word(pp.nums + ".", pp.alphas)
+comment = pp.python_style_comment
 
+path = pp.Combine(identifier + pp.ZeroOrMore(dot + identifier))
+
+def make_reference(s, loc, tokens):
+    return ast.Reference(
+        source=None,
+        locn_start=loc,
+        locn_end=loc + len(s),
+        path=tokens.as_list(),
+    )
+
+reference = (path | identifier).set_parse_action(make_reference)
+
+
+
+#%%
 # # eg. V[abc]
 # # eg. V[abc:pqr]
 # real_identifier = pp.Group(identifier + "[" + pp.Group(value + pp.Optional(":" + value)) + "]")
 
 # #%%
-# # operators
-# comparison_operator = pp.oneOf("< <= == >= >")
-# connection_operator = pp.oneOf("~")
-# assignment_operator = pp.Literal("=")
 
-# pin_creation = pp.Group("pin" + identifier)
 
 # generic_assignment = pp.Group(identifier + assignment_operator + value)
 # model_definition = pp.Group(identifier + assignment_operator + value)

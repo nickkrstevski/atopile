@@ -1,3 +1,5 @@
+import other_module
+
 feature i2c(Vsupply):
     pin gnd
     pin sda
@@ -7,7 +9,7 @@ feature i2c(Vsupply):
     type[scl] = new type(scl)
 
     state on:
-        function V[sda:gnd] = (Vsupply/2 to Vsupply) + I[sda:gnd] * 0.1kR
+        func V[sda:gnd] = (Vsupply/2 to Vsupply) + I[sda:gnd] * 0.1kR
         limit -10mA < I[sda:gnd] < 10mA
 
 component:
