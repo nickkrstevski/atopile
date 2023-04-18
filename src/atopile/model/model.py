@@ -3,45 +3,27 @@ This datamodel represents the lowest level of the circuit compilation chain, clo
 
 """
 
-# TODO: should we make multiple "pins" for a single physical pin?
-# eg. there's the pin (pin 3 say on the package), there's the pin
-# that's jtag and there's the pin that's i2c, even though they're
-# all on the same net
+from typing import List, Optional
 
+import igraph as ig
 from attrs import define, field
-from typing import List, Tuple, Optional
 
 @define
-class ModelNode:
+class GraphNode:
     """
-    The base class for all nodes in the model
+    Represents a node(/vertex) in a graph
     """
-    source: str
-    locn_start: int
-    locn_end: int
+    graph: ig.Graph
+    id: str
 
 @define
-class EtherealPin(ModelNode):
+class EtherealPin:
     """
     Represents a pin that is not physically present on the board, any feature or component
     """
     name: str
-    type: List['EtherealPin'] = field(default=None)
-
-@define
-class Connection(ModelNode):
-    """
-    Represents the connection between two things
-
-    If a parent is specified, the connection will be represented as a feature whereever possible.
-
-    :param a: the first thing
-    :param b: the second thing
-    :param parent: (Optional) the feature that causes this connection
-    """
-    a: EtherealPin
-    b: EtherealPin
-    parent: Optional['Feature'] = field(default=None)
+    type: GraphNode
+    electrical_node: GraphNode
 
 @define
 class Pin(EtherealPin):
@@ -63,65 +45,14 @@ class Package:
     footprint: str
 
 @define
-class Function(ModelNode):
+class Block:
     """
-    Represents a function that controls pin behaviour
-
-    NOTE: this is ultimately mean to represent a mathematical function and should be a richer type.
-    It's just currently a string so we can preserve the data somewhere.
-    """
-    eqn: str
-
-@define
-class Limit(ModelNode):
-    """
-    Represents a limit (a mathematical equality/inequality) a component or feature is subject to
-
-    NOTE: this is ultimately mean to represent a mathematical function and should be a richer type.
-    It's just currently a string so we can preserve the data somewhere.
-    """
-    eqn: str
-
-@define
-class State(ModelNode):
-    """
-    Represents a state of a component or feature
+    Represent a logical block of the circuit, whether that's a component, a feature of a component or a circuit module
+    If a package is specified for a block, subblocks cannot have packages
     """
     name: str
-    functions: List[Function] = field(factory=list)
-    limits: List[Limit] = field(factory=list)
-    type: List['EtherealPin'] = field(default=None)
-
-@define
-class Feature(ModelNode):
-    """
-    Represent an abstraction of some function offered by a component or circuit.
-    eg. i2c, jtag, power_in etc...
-
-    Assets defined in a feature only exist (and become both accessible and mandatory) when a feature is enabled.
-    """
-    name: str
+    type: GraphNode
+    heirarchy_node: GraphNode
     ethereal_pins: List[EtherealPin] = field(factory=list)
-    type: List['Feature'] = field(default=None)
-    functions: List[Function] = field(factory=list)
-    limits: List[Limit] = field(factory=list)
-    states: List[State] = field(factory=list)
-    connections: List[Tuple[str, str]] = field(factory=list)
-    subcomponents: List['Component'] = field(factory=list)
-
-@define
-class Component(Feature):
-    """
-    Represents either a stand-alone electrical component or a circuit module.
-
-    subcomponents and package are mutually exclusive.
-    You know what physically exists because it's a subcomponent of the top-level component.
-    eg. it has populated        : package  | subcomponents
-                                -----------+--------------
-        on "type" tree          :  class   |   class
-        on "subcomponents" tree : physical |   class
-    """
-    type: List['Component'] = field(default=None)
-    ethereal_pins: List[EtherealPin] = field(factory=list)
-    features: List[Feature] = field(factory=list)
-    package: Optional[Package]
+    blocks: List['Block'] = field(factory=list)
+    package: Optional[Package] = field(default=None)
