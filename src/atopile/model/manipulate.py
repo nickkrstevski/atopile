@@ -7,50 +7,10 @@ type_graph = ig.Graph(n=1, directed=True)
 heirachy_graph = ig.Graph(n=1, directed=True)
 electrical_graph = ig.Graph()
 
-def copy_pin(pin: model.Pin) -> model.Pin:
-    """"""
-    electrical_node = model.GraphNode(
-        graph=pin.electrical_node.graph,
-        id=str(uuid4()),
-    )
-
-    return model.Pin(
-        name=pin.name,
-        type=pin.type,
-        electrical_node=electrical_node,
-        pad=pin.pad,
-    )
-
-def copy_ethereal_pin(pin: model.EtherealPin) -> model.EtherealPin:
-    """"""
-    electrical_node = model.GraphNode(
-        graph=pin.electrical_node.graph,
-        id=str(uuid4()),
-    )
-
-    return model.EtherealPin(
-        name=pin.name,
-        type=pin.type,
-        electrical_node=electrical_node,
-    )
-
-def copy_package(package: model.Package) -> model.Package:
-    """"""
-    return model.Package(
-        name=package.name,
-        pins=[copy_pin(pin) for pin in package.pins],
-        footprint=package.footprint,
-    )
-
-def copy_block(block: model.Block) -> model.Block:
-    """"""
-    return model.Block(
-        name=block.name,
-        type=block.type,
-        heirachy=block.heirachy,
-        ethereal_pins=[copy_ethereal_pin(pin) for pin in block.ethereal_pins],
-        package=copy_package(block.package) if block.package else None,
-    )
+# we're gonna do this in three passes
+# 1. create all the types
+# 2. create all the instances
+# 3. create all the connections
 
 def make_block(name: str, type_graph: ig.Graph, heirachy_graph: ig.Graph, instance_of: Optional[model.Block] = None, derived_from: Optional[model.Block] = None, part_of: Optional[model.Block] = None):
     """"""
@@ -92,7 +52,5 @@ def make_block(name: str, type_graph: ig.Graph, heirachy_graph: ig.Graph, instan
         ethereal_pins=[],
         package=None,
     )
-
-    block_type.graph.vs. = type_graph
 
     return block
