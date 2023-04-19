@@ -38,6 +38,10 @@ def make_resistor_package():
         ]
     )
 
+    for pin in package.pins:
+        electrical_graph.vs.select(name_eq=pin.electrical_node.id)['object'] = pin
+        electrical_graph.vs.select(name_eq=pin.electrical_node.id)['parent'] = package
+
     return package
 
 resistor_type = make_graph_node(type_graph)
@@ -61,11 +65,13 @@ def make_resistor_block(name: str):
         ],
         type=resistor_type,
         blocks=[],
-        heirarchy_node=make_graph_node(heirachy_graph),
+        hierarchy_node=make_graph_node(heirachy_graph),
     )
 
     for pin, ethereal_pin in zip(block.package.pins, block.ethereal_pins):
         electrical_graph.add_edge(pin.electrical_node.id, ethereal_pin.electrical_node.id)
+        electrical_graph.vs.select(name_eq=pin.electrical_node.id)['object'] = pin
+        electrical_graph.vs.select(name_eq=pin.electrical_node.id)['parent'] = block
 
     return block
 
@@ -102,10 +108,14 @@ def make_vdiv_block(name: str):
             r1,
             r2,
         ],
-        heirarchy_node=make_graph_node(heirachy_graph),
+        hierarchy_node=make_graph_node(heirachy_graph),
     )
 
-    heirachy_graph.add_edge(block.blocks[0].heirarchy_node.id, block.heirarchy_node.id)
+    for pin in block.ethereal_pins:
+        electrical_graph.vs.select(name_eq=pin.electrical_node.id)['object'] = pin
+        electrical_graph.vs.select(name_eq=pin.electrical_node.id)['parent'] = block
+
+    heirachy_graph.add_edge(block.blocks[0].hierarchy_node.id, block.hierarchy_node.id)
     electrical_graph.add_edge(r1.ethereal_pins[0].electrical_node.id, block.ethereal_pins[0].electrical_node.id)
     electrical_graph.add_edge(r1.ethereal_pins[1].electrical_node.id, r2.ethereal_pins[0].electrical_node.id)
     electrical_graph.add_edge(r1.ethereal_pins[1].electrical_node.id, block.ethereal_pins[1].electrical_node.id)
@@ -127,11 +137,11 @@ root_block = model.Block(
         v_div_1,
         v_div_2,
     ],
-    heirarchy_node=make_graph_node(heirachy_graph),
+    hierarchy_node=make_graph_node(heirachy_graph),
 )
 
-heirachy_graph.add_edge(v_div_1.heirarchy_node.id, root_block.heirarchy_node.id)
-heirachy_graph.add_edge(v_div_2.heirarchy_node.id, root_block.heirarchy_node.id)
+heirachy_graph.add_edge(v_div_1.hierarchy_node.id, root_block.hierarchy_node.id)
+heirachy_graph.add_edge(v_div_2.hierarchy_node.id, root_block.hierarchy_node.id)
 
 electrical_graph.add_edge(v_div_1.ethereal_pins[0].electrical_node.id, v_div_2.ethereal_pins[0].electrical_node.id)
 electrical_graph.add_edge(v_div_1.ethereal_pins[1].electrical_node.id, v_div_2.ethereal_pins[1].electrical_node.id)
