@@ -41,8 +41,8 @@ class Package:
     eg. QFN-48, SOIC-8, etc...
     """
     name: str
-    pins: List[Pin] = field(factory=list)
     footprint: str
+    pins: List[Pin] = field(factory=list)
 
 @define
 class Block:
