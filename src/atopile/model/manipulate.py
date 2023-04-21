@@ -53,4 +53,9 @@ def make_block(name: str, type_graph: ig.Graph, heirachy_graph: ig.Graph, instan
         package=None,
     )
 
+    # attach objects to graph nodes
+    if not instance_of:
+        type_graph.vs[block_type.id]['object'] = block
+    heirachy_graph.vs[block_heirachy.id]['object'] = block
+
     return block

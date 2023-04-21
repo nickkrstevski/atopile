@@ -52,7 +52,7 @@ class Block:
     """
     name: str
     type: GraphNode
-    heirarchy_node: GraphNode
+    hierarchy_node: GraphNode
     ethereal_pins: List[EtherealPin] = field(factory=list)
     blocks: List['Block'] = field(factory=list)
     package: Optional[Package] = field(default=None)
