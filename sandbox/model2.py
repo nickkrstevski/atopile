@@ -36,7 +36,7 @@ resistor = ig.Graph(directed=True)
 resistor.add_vertices(
     6,
     {'type': ['ethereal_pin'] * 2 + ['pin'] * 2 + ['package'] + ['block'],
-     'ref': ['1', '2', '1', '2', 'package', 'resistor'],}
+     'ref': ['1', '2', '1', '2', 'package', 'block'],}
 )
 resistor.add_edges([(0, 5), (1, 5), (2, 4), (3, 4), (4, 5)], {'type': ['part_of'] * 5})
 resistor.add_edges([(0, 2), (1, 3)], {'type': ['connects_to'] * 2})
@@ -47,6 +47,8 @@ plot(resistor)
 g = ig.Graph(directed=True)
 g += resistor
 g += resistor
+g += resistor
+g += resistor
 plot(g)
 
 # %%
@@ -55,6 +57,35 @@ plot(g.subgraph(g.vs.select(type_in=['pin', 'ethereal_pin'])))
 # %%
 resistor.vs['ref']
 # %%
-g.vs['ref']
+for v in g.vs:
+    print(v)
+
+g.add_edges([(1, 7), (2, 8), (13, 19), (14, 20)], {'type': ['connects_to'] * 2})
+plot(g)
+
+# %%
+electrial_g = g.subgraph_edges(g.es.select(type_eq='connects_to'), delete_vertices=False)
+ig.plot(electrial_g)
+# %%
+clusters = electrial_g.clusters(mode='weak')
+for cluster in clusters:
+    print('new cluster')
+    print(cluster)
+
+# %%
+subgraph = g.subgraph(g.vs.select(type_in=['pin', 'ethereal_pin']))
+plot(subgraph)
+# %%
+## could use decompose
+plots = [plot(cluster) for cluster in nets]
+#clusters = g.connected_components(mode = 'WEAK').subgraphs()
+
+#plots = [plot(cluster) for cluster in clusters]
+plots[0]
+# %%
+#plots[1]
+
+# %%
+for cluster in clusters:
 
 # %%
