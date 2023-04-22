@@ -41,3 +41,20 @@ def add_block(g: ig.Graph, block: ig.Graph, block_ref: str, parent: Optional[str
     if parent:
         g.add_edge(block_root_index, find_vertex_at_path(g, parent).index, type='part_of')
     return g
+
+def get_ancestory(g: ig.Graph, v: int):
+    """
+    Get all ancestors of a node
+    """
+    connectedness = g.subgraph_edges(g.es.select(type_eq='part_of'), delete_vertices=False)
+    return connectedness.dfs(v, mode='in')
+
+def whos_yuor_daddy(g: ig.Graph, v: int):
+    """
+    Get logical parent of a node
+    """
+    connectedness = g.subgraph_edges(g.es.select(type_eq='part_of'), delete_vertices=False)
+    parent = connectedness.vs[v].neighbors(mode='out')
+    if len(parent) > 1:
+        raise ValueError("Multiple logical parents found. Graph is invalid")
+    return parent
