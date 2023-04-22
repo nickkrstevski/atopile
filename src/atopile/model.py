@@ -43,7 +43,7 @@ def add_block(g: ig.Graph, block: ig.Graph, block_ref: str, parent: Optional[str
 
 def ancestory_dot_com(g: ig.Graph, v: int):
     """
-    Get all ancestors of a node
+    Get a list of all the logical parents above this
     """
     connectedness = g.subgraph_edges(g.es.select(type_eq='part_of'), delete_vertices=False)
     return connectedness.dfs(v, mode='out')[0]
