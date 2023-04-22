@@ -48,7 +48,9 @@ plot(resistor)
 
 # %%
 g = ig.Graph(directed=True)
+plot(g)
 
+#%%
 def find_vertex_at_path(g: ig.Graph, path: str):
     path = path.split('.')
     candidates = g.vs.select(ref_eq=path.pop(0))
@@ -58,6 +60,7 @@ def find_vertex_at_path(g: ig.Graph, path: str):
     if len(candidates) > 1:
         raise ValueError(f"Multiple verticies found at path {path}")
     return candidates[0]
+#%%
 
 def add_block(g: ig.Graph, block: ig.Graph, block_ref: str, parent: Optional[str] = None):
     block_index = len(g.vs)
@@ -68,8 +71,8 @@ def add_block(g: ig.Graph, block: ig.Graph, block_ref: str, parent: Optional[str
         g.add_edge(block_index, g.vs.find(path_eq=parent).index, {'type': 'part_of'})
 
 
-add_block(g, resistor, 'resistor', 'r1')
-plot(g)
+# add_block(g, resistor, 'resistor', 'r1')
+
 
 # %%
 plot(g.subgraph(g.vs.select(type_in=['pin', 'ethereal_pin'])))
@@ -89,4 +92,6 @@ ig.plot(resistor.connected_components(mode='WEAK').subgraphs())
 # %%
 [i for c in resistor.vs for i in c.neighbors(mode='in')]
 
+# %%
+find_vertex_at_path(g, 'r1.resistor.1')
 # %%
