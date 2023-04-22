@@ -48,7 +48,7 @@ def ancestory_dot_com(g: ig.Graph, v: int):
     connectedness = g.subgraph_edges(g.es.select(type_eq='part_of'), delete_vertices=False)
     return connectedness.dfs(v, mode='out')[0]
 
-def whos_yuor_daddy(g: ig.Graph, v: int):
+def whos_your_daddy(g: ig.Graph, v: int):
     """
     Get logical parent of a node
     """
@@ -56,4 +56,4 @@ def whos_yuor_daddy(g: ig.Graph, v: int):
     parent = connectedness.vs[v].neighbors(mode='out')
     if len(parent) > 1:
         raise ValueError("Multiple logical parents found. Graph is invalid")
-    return parent
+    return parent[0]
