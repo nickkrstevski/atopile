@@ -1,7 +1,7 @@
 import igraph as ig
 from typing import Optional
 
-def plot(g: ig.Graph):
+def plot(g: ig.Graph, *args, **kwargs):
     color_dict = {
         "block": "red",
         "package": "green",
@@ -10,11 +10,10 @@ def plot(g: ig.Graph):
         "connects_to": "blue",
         "part_of": "black",
     }
-    visual_style = {}
-    visual_style["vertex_color"] = [color_dict.get(type_name, "grey") for type_name in g.vs["type"]]
-    visual_style["vertex_label"] = g.vs["ref"]
-    visual_style["edge_color"] = [color_dict[type_name] for type_name in g.es["type"]]
-    return ig.plot(g, **visual_style)
+    kwargs["vertex_color"] = [color_dict.get(type_name, "grey") for type_name in g.vs["type"]]
+    kwargs["vertex_label"] = g.vs["ref"]
+    kwargs["edge_color"] = [color_dict[type_name] for type_name in g.es["type"]]
+    return ig.plot(g, *args, **kwargs)
 
 def find_vertex_at_path(g: ig.Graph, path: str):
     path_parts = path.split('.')
@@ -42,12 +41,12 @@ def add_block(g: ig.Graph, block: ig.Graph, block_ref: str, parent: Optional[str
         g.add_edge(block_root_index, find_vertex_at_path(g, parent).index, type='part_of')
     return g
 
-def get_ancestory(g: ig.Graph, v: int):
+def ancestory_dot_com(g: ig.Graph, v: int):
     """
     Get all ancestors of a node
     """
     connectedness = g.subgraph_edges(g.es.select(type_eq='part_of'), delete_vertices=False)
-    return connectedness.dfs(v, mode='in')
+    return connectedness.dfs(v, mode='out')[0]
 
 def whos_yuor_daddy(g: ig.Graph, v: int):
     """
