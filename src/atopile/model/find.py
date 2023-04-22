@@ -1,4 +1,5 @@
 import igraph as ig
+from typing import List
 
 def find_vertex_at_path(g: ig.Graph, path: str):
     path_parts = path.split('.')
@@ -16,7 +17,7 @@ def find_root_vertex(g: ig.Graph):
         raise ValueError("Multiple root verticies found. Graph is invalid")
     return candidates[0]
 
-def ancestory_dot_com(g: ig.Graph, v: int):
+def ancestory_dot_com(g: ig.Graph, v: int) -> List[int]:
     """
     Get a list of all the logical parents above this
     """
