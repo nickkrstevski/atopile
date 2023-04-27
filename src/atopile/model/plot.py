@@ -8,6 +8,7 @@ def plot(g: ig.Graph, *args, **kwargs):
         "ethereal_pin": "magenta",
         "connects_to": "blue",
         "part_of": "black",
+        "class_of": "yellow"
     }
     try:
         g.vs["type"]

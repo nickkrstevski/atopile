@@ -2,6 +2,7 @@ import igraph as ig
 from typing import List
 
 def find_vertex_at_path(g: ig.Graph, path: str):
+    #TODO: add error if nothing at path
     path_parts = path.split('.')
     candidates = g.vs.select(ref_eq=path_parts.pop(0))
     if len(candidates) > 1:
@@ -11,10 +12,20 @@ def find_vertex_at_path(g: ig.Graph, path: str):
         candidates = candidates.select(ref_eq=ref)
     return candidates[0]
 
-def find_root_vertex(g: ig.Graph):
+def find_root_block(g: ig.Graph):
     candidates = g.vs.select(type_eq='block', _outdegree_eq=0)
     if len(candidates) > 1:
         raise ValueError("Multiple root verticies found. Graph is invalid")
+    elif len(candidates) == 0:
+        raise ValueError("No root block found. There must be no block in this graph")
+    return candidates[0]
+
+def find_root_vertex(g: ig.Graph):
+    candidates = g.vs.select(_outdegree_eq=0)
+    if len(candidates) > 1:
+        raise ValueError("Multiple root verticies found. Graph is invalid")
+    elif len(candidates) == 0:
+        raise ValueError("No root vertex found.")
     return candidates[0]
 
 def ancestory_dot_com(g: ig.Graph, v: int) -> List[int]:
@@ -28,11 +39,17 @@ def whos_your_daddy(g: ig.Graph, v: int):
     """
     Get logical parent of a node
     """
-    connectedness = g.subgraph_edges(g.es.select(type_eq='part_of'), delete_vertices=False)
+    connectedness = g.subgraph_edges(g.es.select(type_eq='class_of'), delete_vertices=False)
     parent = connectedness.vs[v].neighbors(mode='out')
     if len(parent) > 1:
         raise ValueError("Multiple logical parents found. Graph is invalid")
     return parent[0]
+
+def find_class_vertex_of_type_associated_to_block(g: ig.Graph, block: int, type: str):
+    """
+    -
+    """
+    pass
 
 def find_blocks_associated_to_package(g: ig.Graph):
     """
