@@ -1,0 +1,78 @@
+# introduction:
+# in order to prevent continuous code refactoring, it's is crucial to remove the understanding
+# of what an electrical graph is from the compiler. The compiler should only have functions that manipulate 
+# edges and vertices without needing to understand what they mean
+
+# this will ultimately enable us to use this compiler to generate 
+# graphs that are more complex or even not related to electronics (mechanical assemblies for example)
+
+
+555.ato
+# this instantiates a vertex for the file. The reference for this vertex is '555.ato'. 
+# this is the same as:
+# def 555.ato
+
+# technically, everything beneath here is indended within the def 555.ato
+
+def seed:
+# a def instantiates a vertex. Since the vertex was created within the file (def 555.ato),
+# the vertex is connected to the mother vertex through
+# a 'class_of' edge. We will write class_of edges like so: c_
+
+    def package:
+        pass
+    # a package vertex is created. Since it is a def, the edge to the seed vertex is c_
+    
+    def ethereal_pin:
+        # an ethereal_pin is created. Since it is a def, the edge to the seed vertex is c_
+        def pin:
+            pass
+            # a pin vertex is created. Since it is a def, the edge to the ethereal_pin vertex is c_
+
+def res: 
+# similarly to above, this instantiates a vertex with c_ edge to mother vertex
+    
+    package = seed.package()
+    # What happens here is that a copy of the seed.package vertex is created. Everything below
+    # the vertex is copied. In this case, there is nothing (pass).
+    # However, since we are currently below the res def, the copy of the vertex is made and a new
+    # 'part_of' edge is created between the res vertex and the seed.package() vertex instance.
+
+    pin1 = seed.ethereal_pin.pin()
+    pin2 = seed.ethereal_pin.pin()
+    # in this case, the instantiation is two level deep at the seed. That means that a copy is made
+    # of the ehereal_pin and the pin and that all edges are transformed to 'part_of' (called p_).
+    # an additional part_of edge is added between the e_pin vertex and the res vertex
+
+    # btw, i suggest keeping the class of edge to the mother vertex so we know where it came from.
+    
+    # The above can be considered as a rule, however, it is not allowed to do that through a block.
+    # This means that within any block, a feature can be turned on as deep as we want, as long as it is 
+    # not part of another block that has not been instantiated yet.
+    # The thing that cannot be traversed is a b-c_-... connection.
+
+    
+    # Need to figure out how to add part_of connections horizontally still
+    package.add(pin1)
+    package.add(pin2)
+
+
+def v_div:
+# just like before, this creates a new vertex and makes a c_ edge to 555.ato vertex
+    res1 = res()
+    res2 = res()
+    # we are instantiating a resistor. in this case, the instance lives below v_div vertex
+    # the resistor graph is copied and a new p_ edge is created to the v_div vertex and
+    # a c_ edge is added to the res vertex.
+
+    # ethereal pins are created for convenience
+    input = seed.ethereal_pin()
+    output = seed.ethereal_pin()
+    ground = seed.ethereal_pin()
+    # in this case, the ethereal_pin graph is copied from the seed graph and added underneath
+    # the v_div vertex. a c_ edge is made to the seed. the pin is also present, but only as a 
+    # c_ to the ethereal_pin
+
+    # res1 and res2 are connected together
+    input ~ res1 ~ output ~ res2 ~ ground
+
