@@ -20,6 +20,7 @@ def seed:
 # a 'class_of' edge. We will write class_of edges like so: c_
 
     def package:
+        actual_package = None
         pass
     # a package vertex is created. Since it is a def, the edge to the seed vertex is c_
     
@@ -33,6 +34,7 @@ def res:
 # similarly to above, this instantiates a vertex with c_ edge to mother vertex
     
     package = seed.package()
+    package.actual_package = soic8
     # What happens here is that a copy of the seed.package vertex is created. Everything below
     # the vertex is copied. In this case, there is nothing (pass).
     # However, since we are currently below the res def, the copy of the vertex is made and a new
