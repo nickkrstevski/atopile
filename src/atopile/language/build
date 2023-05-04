@@ -1,0 +1,3 @@
+#!/sh
+
+/Users/mattwildoer/Projects/antlr4/docker-simplified/antlr4 -Dlanguage=Python3 -o generated -visitor Atopile.g4

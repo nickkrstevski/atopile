@@ -1,22 +1,41 @@
 lexer grammar AtopileLexer;
 
-expression          : '(' expression ')'                        #parenthesisExp
-                    | expression (ASTERISK|SLASH) expression    #mulDivExp
-                    | expression (PLUS|MINUS) expression        #addSubExp
-                    | <assoc=right>  expression '^' expression  #powerExp
-                    | NAME '(' expression ')'                   #functionExp
-                    | NUMBER                                    #numericAtomExp
-                    | ID                                        #idAtomExp
-                    ;
+tokens { INDENT, DEDENT }
 
-fragment LETTER     : [a-zA-Z] ;
-fragment DIGIT      : [0-9] ;
+options {
+    superClass=AtopileLexerBase;
+}
 
-ASTERISK            : '*' ;
-SLASH               : '/' ;
-PLUS                : '+' ;
-MINUS               : '-' ;
-ID                  : LETTER DIGIT ;
-IDENTIFIER          : LETTER+ ;
-NUMBER              : DIGIT+ ('.' DIGIT+)? ;
-WHITESPACE          : ' ' -> skip;
+// keywords
+DOT : '.';
+OPEN_PAREN : '(' {self.openBrace();};
+CLOSE_PAREN : ')' {self.closeBrace();};
+OPEN_BRACE : '{' {self.openBrace();};
+CLOSE_BRACE : '}' {self.closeBrace();};
+OPEN_BRACK : '[' {self.openBrace();};
+CLOSE_BRACK : ']' {self.closeBrace();};
+CONNECT : '~';
+
+SKIP_
+ : ( SPACES | COMMENT | LINE_JOINING ) -> skip
+ ;
+
+UNKNOWN_CHAR
+ : .
+ ;
+
+fragment DIGIT
+ : [0-9]
+ ;
+
+fragment SPACES
+ : [ \t]+
+ ;
+
+fragment COMMENT
+ : '#' ~[\r\n\f]*
+ ;
+
+fragment LINE_JOINING
+ : '\\' SPACES? ( '\r'? '\n' | '\r' | '\f')
+ ;
