@@ -1,6 +1,7 @@
 import logging
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
+from typing import List
 
 from antlr4 import CommonTokenStream, FileStream
 
@@ -11,18 +12,7 @@ from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
 
 log = logging.getLogger(__name__)
 
-
-class AtoFrontend(AtopileParserVisitor):
-    def __init__(self, model: Model) -> None:
-        super().__init__()
-        self._been_run = False
-        self.model = model
-        self.current_parent = None
-        self.build_root_path: Path = None
-        self.parsed_files = {}
-
-    @staticmethod
-    def parse_file(path: Path) -> Model:
+def parse_file(path: Path) -> Model:
         input = FileStream(path)
         lexer = AtopileLexer(input)
         stream = CommonTokenStream(lexer)
@@ -30,36 +20,73 @@ class AtoFrontend(AtopileParserVisitor):
         tree = parser.file_input()
         return tree
 
+class FromAtoBuilder(AtopileParserVisitor):
+    def __init__(self, model: Model=None, path: List[Path]=None) -> None:
+        super().__init__()
+
+        if model is None:
+            model = Model()
+        self.model = model
+
+        if path is None:
+            path = []
+        self._path = path
+
+        self._parents = []
+
+        # what we're currently building
+        # use this to detect circular imports
+        self._building_files = []
+
+        # what we've already built
+        # use this to ignore subsequent imports
+        self._built_files = []
+
+    @property
+    def current_parent(self):
+        return self._parents[-1]
+
     @contextmanager
     def parent(self, ref: str):
-        old_parent = self.current_parent
-        self.current_parent = ref
+        self._parents.append(ref)
         yield
-        self.current_parent = old_parent
+        self._parents.pop()
 
-    def seed(self, path: Path):
+    @contextmanager
+    def file_build(self, path: Path):
+        if path.absolute() in self._building_files:
+            raise RuntimeError(f"Circular import detected: {path}")
+        path = path.absolute()
+        self._parents.append(path)
+        yield
+        self._parents.pop()
+
+    def find_file(self, filename: str) -> Tuple[str, Path]:
+        ooscope_errors = []
+        for path in self.path:
+            full_path = path / filename
+            if not full_path.is_relative_to(path):
+                ooscope_errors.append(full_path)
+                continue
+            if full_path.exists():
+                return full_path
+        if ooscope_errors:
+            raise FileNotFoundError(f"We could only find {filename} at {ooscope_errors}, which is above all search paths. The file must be within at least one search path.")
+        raise FileNotFoundError(f"{filename}. this ")
+
+    def build_from_filename(self, filename: str):
         """
-        Start the build from the specified file.
+        Start the build from the specified file expected within path.
         """
-        if not path.exists():
-            raise FileNotFoundError(path)
-        ref = path.name
-        self.build_root_path = path.parent
+        path = self.find_file_in_path(filename)
+        with self.file_build(path):
+            tree = parse_file(path)
 
-        tree = self.parse_file(path)
-        self.parsed_files[path] = tree
+            self.model.new_vertex(VertexType.file, filename)
+            self.model.data[ref] = {}
 
-        self.model.new_vertex(VertexType.file, ref)
-        self.model.data[ref] = {}
-
-        self.current_parent = ref
-        self.visit(tree)
-
-    def visit(self, tree):
-        if self._been_run:
-            raise RuntimeError("Visitor has already been used")
-        self._been_run = True
-        return super().visit(tree)
+            self.current_parent = ref
+            self.visit(tree)
 
     def visitImport_stmt(self, ctx: AtopileParser.Import_stmtContext):
         import_filename = ctx.STRING().getText().strip('"')
@@ -71,7 +98,7 @@ class AtoFrontend(AtopileParserVisitor):
         if path in self.parsed_files:
             tree = self.parsed_files[path]
         else:
-            tree = self.parse_file(path)
+            tree = parse_file(path)
             self.parsed_files[path] = tree
 
             self.model.new_vertex(VertexType.file, import_filename)
