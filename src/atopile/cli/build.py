@@ -36,3 +36,6 @@ def build(path, entrypoint, output, debug: bool):
 
     netlist.to_file(output)
     log.info(f"Wrote netlist to {output}")
+
+if __name__ == "__main__":
+    build()

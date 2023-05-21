@@ -1,7 +1,8 @@
 import logging
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Callable
+import functools
 
 from antlr4 import CommonTokenStream, FileStream
 
@@ -11,11 +12,13 @@ from atopile.parser.AtopileLexer import AtopileLexer
 from atopile.parser.AtopileParser import AtopileParser
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
 from atopile.project.project import Project
+from atopile.project.cache import CacheManager
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
-def parse_file(path: Path):
+
+def parse_file(path: Path) -> AtopileParser.File_inputContext:
     input = FileStream(path, encoding="utf-8")
     lexer = AtopileLexer(input)
     stream = CommonTokenStream(lexer)
@@ -24,9 +27,10 @@ def parse_file(path: Path):
     return tree
 
 class Builder(AtopileParserVisitor):
-    def __init__(self, project: Project) -> None:
+    def __init__(self, project: Project, file_parser: Callable) -> None:
         self.model = Model()
         self.project = project
+        self.file_parser = file_parser
 
         self._block_stack: List[str] = []
         self._file_stack: List[str] = []
@@ -69,7 +73,7 @@ class Builder(AtopileParserVisitor):
         std_path = self.project.standardise_import_path(abs_path)
         std_path_str = str(std_path)
 
-        tree = parse_file(abs_path)
+        tree = self.file_parser(abs_path)
 
         self.model.new_vertex(VertexType.file, std_path_str)
         self.model.data[std_path_str] = {}
@@ -90,7 +94,7 @@ class Builder(AtopileParserVisitor):
         if std_path not in self.model.src_files:
             # do the actual import, parsing etc...
             with self.working_file(abs_path):
-                tree = parse_file(abs_path)
+                tree = self.file_parser(abs_path)
                 self.model.new_vertex(VertexType.file, import_filename)
                 self.model.data[import_filename] = {}
                 super().visit(tree)
@@ -231,18 +235,29 @@ class Builder(AtopileParserVisitor):
     def get_string(self, ctx:AtopileParser.StringContext) -> str:
         return ctx.getText().strip("\"\'")
 
-def build(project: Project, path: Path) -> Model:
+def build(project: Project, path: Path, use_cache=True) -> Model:
     log.info("Building model")
     if log.getEffectiveLevel() <= logging.DEBUG:
         import cProfile
         import pstats
+
         from atopile.utils import StreamToLogger
 
         prof = cProfile.Profile()
         prof.enable()
 
-    bob = Builder(project)
+    if use_cache:
+        cache = CacheManager(project)
+        file_parser = functools.partial(cache.get, loader=parse_file)
+        cache.load()
+    else:
+        file_parser = parse_file
+
+    bob = Builder(project, file_parser=file_parser)
     model = bob.build(path)
+
+    if use_cache:
+        cache.save()
 
     if log.getEffectiveLevel() <= logging.DEBUG:
         prof.disable()

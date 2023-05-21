@@ -38,6 +38,14 @@ class Project:
     def build_dir(self):
         return self.root / BUILD_DIR_NAME
 
+    @property
+    def cache_dir(self):
+        return self.build_dir / ".cache"
+
+    @property
+    def cache_manifest(self):
+        return self.cache_dir / "manifest.yaml"
+
     @classmethod
     def from_path(cls, path: Path):
         """
