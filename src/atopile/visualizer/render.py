@@ -214,15 +214,21 @@ class Bob(ModelVisitor):
 
                 stub_name = stubbed_pin.source_path[len(main.path)+1:]
                 if stubbed_pin.source_vid not in stubbed_pins_vids:
-                    stubbed_id = generate_stub_id(connection["uid"], stubbed_pin.source_path)
-                    block.stubs.append(Stub(
-                        name=stub_name,
-                        source=stubbed_pin.id,
-                        id=stubbed_id,
-                        direction=pin_location_stub_direction_map.get(stubbed_pin.location, default_stub_direction),
-                        position=self.get_position(stubbed_id),
-                    ))
-                    stubbed_pins_vids.append(stubbed_pin.source_vid)
+                    pin_mv = ModelVertex(self.model, connection.source if source_pin.connection_stubbed else connection.target)
+                    pin_is_public = pin_mv.data.get("private", False)
+                    pin_is_signal = pin_mv.vertex_type != VertexType.signal
+                    if pin_is_public and pin_is_signal:
+                        pass
+                    else:
+                        stubbed_id = generate_stub_id(connection["uid"], stubbed_pin.source_path)
+                        block.stubs.append(Stub(
+                            name=stub_name,
+                            source=stubbed_pin.id,
+                            id=stubbed_id,
+                            direction=pin_location_stub_direction_map.get(stubbed_pin.location, default_stub_direction),
+                            position=self.get_position(stubbed_id),
+                        ))
+                        stubbed_pins_vids.append(stubbed_pin.source_vid)
 
                 connecting_id = generate_stub_id(connection["uid"], connecting_pin.source_path)
                 block.stubs.append(Stub(
