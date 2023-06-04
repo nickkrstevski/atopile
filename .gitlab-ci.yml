@@ -12,11 +12,11 @@ docs-build:
   artifacts:
     paths:
     - build/docs/public
-  rules:
+  # rules:
   # - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  - changes:
-      paths:
-        - docs/*
+  # - changes:
+  #     paths:
+  #       - docs/*
 
 docs-deploy:
   stage: deploy
