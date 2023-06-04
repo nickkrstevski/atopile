@@ -15,6 +15,9 @@ docs-build:
   rules:
   # - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   - if: $CI_COMMIT_BRANCH == "mwildoer/docs-deployment"
+    changes:
+      paths:
+        - docs/*
 
 docs-deploy:
   stage: deploy
