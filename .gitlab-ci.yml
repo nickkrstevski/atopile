@@ -4,18 +4,19 @@ stages:
 
 docs-build:
   stage: build
-  image: python:latest
+  image:
+    name: python:latest
   script:
     - pip install -e.[docs]
     - mkdocs build --site-dir build/docs/public
   artifacts:
     paths:
       - build/docs/public
-  # rules:
-  # - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-  # - changes:
-  #     paths:
-  #       - docs/*
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    changes:
+      paths:
+        - docs/*
 
 docs-deploy:
   stage: deploy
