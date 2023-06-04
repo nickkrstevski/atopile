@@ -29,5 +29,3 @@ docs-deploy:
     - chmod 700 ~/.ssh
   script:
     - scp -o StrictHostKeyChecking=no -r build/docs/public deploy-www@atopile.io:/var/www/docs
-  needs:
-    - docs-build
