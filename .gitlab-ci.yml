@@ -6,10 +6,11 @@ docs-build:
   stage: build
   image: python:latest
   script:
-  - mkdocs build --site-dir build/docs/public
+    - pip install -e.[docs]
+    - mkdocs build --site-dir build/docs/public
   artifacts:
     paths:
-    - build/docs/public
+      - build/docs/public
   # rules:
   # - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   # - changes:
