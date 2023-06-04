@@ -4,11 +4,7 @@ stages:
 
 docs-build:
   stage: build
-  image:
-    name: squidfunk/mkdocs-material
-    entrypoint: [""]
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
+  image: python:latest
   script:
   - mkdocs build --site-dir build/docs/public
   artifacts:
