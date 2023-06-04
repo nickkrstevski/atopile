@@ -1,0 +1,28 @@
+stages:
+  - build
+  - deploy
+
+docs-build:
+  stage: build
+  image: squidfunk/mkdocs-material
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+  - mkdocs build --site-dir build/docs/public
+  artifacts:
+    paths:
+    - build/docs/public
+  rules:
+  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+docs-deploy:
+  stage: deploy
+  image: alpine
+  before_script:
+    - apk add openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    - scp -o StrictHostKeyChecking=no -r build/docs/public deploy-www@atopile.io:/var/www/docs
