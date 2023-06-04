@@ -13,7 +13,8 @@ docs-build:
     paths:
     - build/docs/public
   rules:
-  - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  # - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  - if: $CI_COMMIT_BRANCH == mwildoer/docs-deployment
 
 docs-deploy:
   stage: deploy
@@ -26,3 +27,5 @@ docs-deploy:
     - chmod 700 ~/.ssh
   script:
     - scp -o StrictHostKeyChecking=no -r build/docs/public deploy-www@atopile.io:/var/www/docs
+  needs:
+    - docs-build
