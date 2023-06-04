@@ -4,7 +4,9 @@ stages:
 
 docs-build:
   stage: build
-  image: squidfunk/mkdocs-material
+  image:
+    name: squidfunk/mkdocs-material
+    entrypoint: [""]
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
