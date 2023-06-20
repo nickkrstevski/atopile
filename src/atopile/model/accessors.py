@@ -37,6 +37,7 @@ class ModelVertexView:
 
     @property
     def parent_vidx(self) -> int:
+        # FIXME: I behave badly when I'm not a part of anything
         return self.model.graph.es.find(_source=self.index, type_eq=EdgeType.part_of.name).target
 
     @property
@@ -46,6 +47,16 @@ class ModelVertexView:
     @property
     def parent(self) -> "ModelVertexView":
         return ModelVertexView(self.model, self.parent_vidx)
+
+    @property
+    def parents_vidxs(self) -> List[int]:
+        vidxs = self.model.subcomponent(self.index, mode="out")
+        vidxs.remove(self.index)
+        return vidxs
+
+    @property
+    def parents(self) -> List["ModelVertexView"]:
+        return [ModelVertexView(self.model, p) for p in self.parents_vidxs]
 
     @property
     def instance_of(self) -> "ModelVertexView":

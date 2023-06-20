@@ -7,6 +7,7 @@ from attrs import define, field
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from atopile.model.model import EdgeType, Model, VertexType
+from atopile.model.accessors import ModelVertexView
 from atopile.model.utils import generate_uid_from_path
 from atopile.targets.targets import Target, TargetMuster, TargetCheckResult
 
@@ -285,8 +286,8 @@ class KicadNetlist:
         electrical_graph_within_main = electrical_graph.subgraph(vidxs_within_main)
         clusters = electrical_graph_within_main.connected_components(mode="weak")
         nets = []
-        for i, cluster in enumerate(clusters):
-            cluster_vs = electrical_graph_within_main.vs[cluster]
+        for cluster_vids in clusters:
+            cluster_vs = electrical_graph_within_main.vs[cluster_vids]
             cluster_paths = cluster_vs["path"]
 
             # this works naturally to filter out signals, because only pins are present in the nodes dict
@@ -294,8 +295,16 @@ class KicadNetlist:
 
             # let's find something to call this net
             # how about we call it {lowest common module path}.{signal-name-1}-{signal-name-2}-{signal-name-3}...
-            # actually, fuck that, it sounds hard and it almost 11pm...
-            # let's just call it i for now. TODO: ^ that better thing
+            vertex_views = [ModelVertexView(model, vid) for vid in cluster_vids]
+            vertex_view_parents = [vv.parents for vv in vertex_views]
+            depths = [len(p) for p in vertex_view_parents]
+            min_depth = min(depths)
+            lowest_common_parent = None
+            for depth in range(min_depth, 0, -1):
+                parents_set = [p[depth] for p in vertex_view_parents]
+                if len(set(parents_set)) == 1:
+                    lowest_common_parent = ModelVertexView(model, parents_set[0])
+                    break
 
             # the cluster only represents a net if it contains eletrical pins
             if nodes_in_cluster:
