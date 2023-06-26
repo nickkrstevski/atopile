@@ -136,15 +136,21 @@ class ProjectHandler:
     def vis_file_path(self) -> Path:
         return self.project.root / "vis.yaml"
 
+    def comp_specific_vis_file_path(self, module_file: str) -> Path:
+        module_name = module_file.replace(".ato", "")
+        vis_file_name = module_name + "_vis.yaml"
+        return self.project.root / vis_file_name
+
     # TODO: move this to the class responsible for handling vis configs
     def do_move(self, elementid, x, y):
         # as of writing, the elementid is the element's path
         # so just use that
         vertex_view = ModelVertexView.from_path(model = self._model, path = elementid)
-        file = vertex_view.get_module_file()
-        print('file name', file.path)
+        module_file = vertex_view.get_module_file()
+        vis_file = self.comp_specific_vis_file_path(module_file.path)
+        print('path is', module_file.path)
         self._vis_data.setdefault(elementid, {})['position'] = {"x": x, "y": y}
-        with self.vis_file_path.open('w') as f:
+        with vis_file.open('w') as f:
             yaml.dump(self._vis_data, f)
         self._ignore_files.append(self.vis_file_path)
         asyncio.get_event_loop().call_soon(self.rebuild_view)
