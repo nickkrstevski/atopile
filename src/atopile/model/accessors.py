@@ -103,6 +103,16 @@ class ModelVertexView:
         descendant_vids = set(part_of_view.subcomponent(self.index, mode="in"))
         return [ModelVertexView(self.model, vid) for vid in type_matched_vids & descendant_vids]
 
+    def get_module_file(self) -> "ModelVertexView":
+        vertex_view = self
+        print('type', vertex_view.vertex_type)
+        while vertex_view.vertex_type != VertexType.file:
+            if vertex_view.vertex_type == VertexType.module and vertex_view.instance_of:
+                vertex_view = vertex_view.instance_of
+            else:
+                vertex_view = vertex_view.parent
+        return vertex_view
+
     @classmethod
     def from_view(cls, view: "ModelVertexView"):
         return cls(view.model, view.index)

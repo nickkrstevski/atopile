@@ -7,7 +7,8 @@ import time
 
 import watchfiles
 
-from atopile.model.model import Model
+from atopile.model.model import Model, VertexType
+from atopile.model.accessors import ModelVertexView
 from atopile.parser.parser import build_model as build_model
 from atopile.project.project import Project
 from atopile.project.config import BuildConfig
@@ -139,8 +140,12 @@ class ProjectHandler:
     def do_move(self, elementid, x, y):
         # as of writing, the elementid is the element's path
         # so just use that
+        vertex_view = ModelVertexView.from_path(model = self._model, path = elementid)
+        file = vertex_view.get_module_file()
+        print('file name', file.path)
         self._vis_data.setdefault(elementid, {})['position'] = {"x": x, "y": y}
         with self.vis_file_path.open('w') as f:
             yaml.dump(self._vis_data, f)
         self._ignore_files.append(self.vis_file_path)
         asyncio.get_event_loop().call_soon(self.rebuild_view)
+
