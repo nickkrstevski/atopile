@@ -74,6 +74,7 @@ class AtoComponent extends AtoElement {
         return {
             ...super.defaults(),
             type: "AtoComponent",
+            interactive: false,
             attrs: {
                 body: {
                     fill: "white",
@@ -83,8 +84,10 @@ class AtoComponent extends AtoElement {
                     width: "calc(w)",
                     height: "calc(h)",
                     rx: 5,
-                    ry: 5
+                    ry: 5,
+                    interactive: false,
                 },
+                interactive: false,
                 label: {
                     text: "Component",
                     fill: "black",
@@ -516,7 +519,7 @@ function addStubs(stubs) {
     };
 }
 
-function createComponent(title, uuid, ports_dict, x, y) {
+function createComponent(title, uuid, ports_dict, x, y, is_interactive) {
     comp_width = measureText(title, settings_dict['component']['pin']['fontSize'], 'length') + 2 * settings_dict['component']['titleMargin'];
     comp_height = measureText(title, settings_dict['component']['pin']['fontSize'], 'height') + 2 * settings_dict['component']['titleMargin'];
     const component = new AtoComponent({
@@ -536,10 +539,12 @@ function createComponent(title, uuid, ports_dict, x, y) {
 
     component.addTo(graph);
     component.position(x, y, { parentRelative: true });
+    var compView = component.findView(paper);
+    compView.setInteractivity(is_interactive);
     return component;
 }
 
-function createBlock(title, uuid, ports_dict, x, y) {
+function createBlock(title, uuid, ports_dict, x, y, is_interactive) {
     const block = new AtoBlock({
         id: uuid,
         attrs: {
@@ -550,9 +555,12 @@ function createBlock(title, uuid, ports_dict, x, y) {
     });
 
     addPortsAndPins(block, ports_dict);
+    resizeBasedOnLabels(block, ports_dict);
 
     block.addTo(graph);
     block.position(x, y, { parentRelative: false });
+    var compView = block.findView(paper);
+    compView.setInteractivity(is_interactive);
     return block;
 }
 
@@ -568,10 +576,13 @@ function getElementTitle(element) {
     }
 }
 
-function renderDataFromBackend(data, is_root = true, parent = null) {
+function renderDataFromBackend(data, is_root = true, recursive_depth = 0, parent = null) {
 
     // Create the list of all the created elements
     let dict_of_elements = {};
+
+    // recursive depth element is used to determine if an element will be moveable or not
+    let interactive = recursive_depth < 3 ? true : false;
 
     for (let element of data) {
         // FIXME: this default positioning is shit
@@ -581,13 +592,13 @@ function renderDataFromBackend(data, is_root = true, parent = null) {
         if (element['position']) {
             x = element['position']['x'];
             y = element['position']['y'];
-        }
+        };
 
         var created_element = null;
 
         if (element['type'] == 'component') {
             let title = getElementTitle(element);
-            created_element = createComponent(title, element['uuid'], element['ports'], x, y);
+            created_element = createComponent(title, element['uuid'], element['ports'], x, y, interactive);
             dict_of_elements[element['uuid']] = created_element;
             // FIXME: this is stupildy inefficent. We should be calling fitEmbeds once instead, but it didn't work
             created_element.fitAncestorElements();
@@ -596,13 +607,15 @@ function renderDataFromBackend(data, is_root = true, parent = null) {
         // If it is a block, create it
         else if (element['type'] == 'module') {
             let title = getElementTitle(element);
-            created_element = createBlock(title, element['uuid'], element['ports'], x, y);
+            created_element = createBlock(title, element['uuid'], element['ports'], x, y, interactive);
             dict_of_elements[element['uuid']] = created_element;
 
-            // Iterate over the included elements to create them
-            let returned_dict = renderDataFromBackend(element['blocks'], false, created_element);
-            // Add the returned list to the element list and add all sub-elements to it's parent
-            dict_of_elements = { ...dict_of_elements, ...returned_dict };
+            if (recursive_depth < 2) {
+                // Iterate over the included elements to create them
+                let returned_dict = renderDataFromBackend(element['blocks'], false, recursive_depth + 1, created_element);
+                // Add the returned list to the element list and add all sub-elements to it's parent
+                dict_of_elements = { ...dict_of_elements, ...returned_dict };
+            };
 
             addLinks(element['links']);
             addStubs(element['stubs']);
