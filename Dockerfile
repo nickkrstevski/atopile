@@ -1,5 +1,7 @@
 FROM python:latest
 
+ARG SETUPTOOLS_SCM_PRETEND_VERSION
+
 RUN mkdir -p /atopile/src/atopile
 
 COPY README.md pyproject.toml /atopile/
