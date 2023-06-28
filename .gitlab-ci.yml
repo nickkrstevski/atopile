@@ -35,10 +35,17 @@ docs-deploy:
         paths:
           - docs/*
 
-tag-test:
+build:
   stage: build
-  image: alpine
+  image:
+    # consider upgrading to a newer version of kaniko?
+    name: gcr.io/kaniko-project/executor:v1.9.0-debug
+    entrypoint: [""]
   script:
-    - echo "I'm so triggered"
-  rules:
-    - if: $CI_COMMIT_TAG
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}:totally-a-tag"
+      --destination "${CI_REGISTRY_IMAGE}:latest"
+  # rules:
+  #   - if: $CI_COMMIT_TAG
