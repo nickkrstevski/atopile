@@ -154,4 +154,3 @@ class ProjectHandler:
             yaml.dump(self._vis_data, f)
         self._ignore_files.append(self.vis_file_path)
         asyncio.get_event_loop().call_soon(self.rebuild_view)
-

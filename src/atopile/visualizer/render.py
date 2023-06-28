@@ -169,6 +169,31 @@ class Bob(ModelVisitor):
         except KeyError:
             log.debug("No position data for block %s", path)
 
+    def get_the_position(self, ref: str, file: str) -> Optional[Position]:
+        # TODO: move this to the class responsible for handling visualisation configs
+        # check if there's position data for this entity
+        test_data = {
+            'LT3477.ato' : {
+                'c_soft_start' : {
+                    'position': {
+                        'x' : 10,
+                        'y': 10
+                    }
+                }
+            }
+        }
+        file_vis_data = test_data.get(file, {})
+        ref_vis_data = file_vis_data.get(ref, {})
+        try:
+            print('found pos')
+            return Position(
+                x=ref_vis_data["position"]["x"],
+                y=ref_vis_data["position"]["y"]
+            )
+        except KeyError:
+            print('yo')
+            log.debug("No position data for ref %s in module %s", ref, file)
+
     def find_lowest_common_ancestor(self, pins: List[Pin]) -> str:
         if len(pins) == 0:
             raise RuntimeError("No pins to check for lowest common ancestor")
@@ -280,6 +305,13 @@ class Bob(ModelVisitor):
 
             for i, pin in enumerate(pins):
                 pin.index = i
+
+            # building a vertex view to find the parent file of each block
+            # TODO: might be compute intensive to do that
+            block_instance = ModelVertexView.from_path(self.model, uuid_to_be)
+            parent_file = block_instance.get_module_file()
+            print('module is', uuid_to_be, 'ref is', block_instance.ref, 'parent is', parent_file.path)
+            position = self.get_the_position(block_instance.ref, parent_file.path)
 
             # check if there's position data for this block
             position = self.get_position(uuid_to_be)
