@@ -1,4 +1,4 @@
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Iterable
 
 import igraph as ig
 
@@ -88,6 +88,10 @@ class ModelVertexView:
             return [cls(model, e.source) for e in edges]
         else:
             raise ValueError(f"Invalid mode: {mode}")
+
+    @classmethod
+    def from_indicies(cls, indicies: Iterable[int]) -> List["ModelVertexView"]:
+        return [ModelVertexView(i) for i in indicies]
 
     def get_adjacents(self, mode: str, edge_type: Union[EdgeType, List]) -> List["ModelVertexView"]:
         edges = self.get_edges(mode, edge_type)
