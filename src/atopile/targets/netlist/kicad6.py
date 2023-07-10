@@ -243,10 +243,13 @@ class KicadNetlist:
             component_class_idx = component_class_vidxs[component_path]
             component_class_v = model.graph.vs[component_class_idx]
             component_class_path = component_class_v["path"]
+            mvv = ModelVertexView(model, component_v.index)
 
             component_data = model.data.get(component_path, {})
 
             fields = [KicadField(k, v) for k, v in component_data.items() if k not in NON_FIELD_DATA]
+            fields.append(KicadField("ref", mvv.ref))
+            fields.append(KicadField("instance_of", mvv.parent.path))
 
             # there should always be at least one parent, even if only the file
             component_parent_v = ModelVertexView(model, component_v.index).parent
