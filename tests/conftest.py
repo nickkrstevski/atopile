@@ -30,13 +30,13 @@ def dummy_model() -> Model:
 
 @fixture
 def module(dummy_model: Model):
-    return ModelVertexView.from_pathv2(dummy_model, "dummy_file.ato:dummy_module")
+    return ModelVertexView.from_path(dummy_model, "dummy_file.ato:dummy_module")
 
 @fixture
 def comp0(dummy_model: Model):
-    return ModelVertexView.from_pathv2(dummy_model, "dummy_file.ato:dummy_module.dummy_comp0")
+    return ModelVertexView.from_path(dummy_model, "dummy_file.ato:dummy_module.dummy_comp0")
 
 @fixture
 def comp0_p0(dummy_model: Model):
-    return ModelVertexView.from_pathv2(dummy_model, "dummy_file.ato:dummy_module.dummy_comp0.p0")
+    return ModelVertexView.from_path(dummy_model, "dummy_file.ato:dummy_module.dummy_comp0.p0")
 

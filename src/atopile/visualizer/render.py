@@ -99,8 +99,8 @@ class Bob(ModelVisitor):
             lca = lowest_common_ancestor(ModelVertexView.from_indicies(model, [connection.source, connection.target]))
 
             link = Link(
-                source=lca.relative_pathv2(ModelVertexView(model, connection.source)),
-                target=lca.relative_pathv2(ModelVertexView(model, connection.target)),
+                source=lca.relative_path(ModelVertexView(model, connection.source)),
+                target=lca.relative_path(ModelVertexView(model, connection.target)),
             )
 
             bob.block_directory_by_path[lca.path].links.append(link)
@@ -134,7 +134,7 @@ class Bob(ModelVisitor):
             if len(instance_ofs) > 0:
                 if len(instance_ofs) > 1:
                     log.warning(f"Block {vertex.path} is an instance_of multiple things")
-                instance_of = instance_ofs[0].pathv2
+                instance_of = instance_ofs[0].path
             else:
                 instance_of = None
 
