@@ -181,9 +181,6 @@ class AtoComponent extends AtoElement {
                     textVerticalAnchor: "middle",
                     textAnchor: "middle",
                     fontFamily: settings_dict["common"]["fontFamily"],
-                    textWrap: {
-                        width: 100,
-                    },
                     x: "calc(w/2)",
                     y: "calc(h/2)"
                 }
@@ -446,101 +443,105 @@ function addLinks(element, current_path) {
         for (let link_config of element['config']['signals']) {
             if (link_config['name'] == link['signal'] && link_config['is_stub']) {
                 is_stub = true;
-                let added_stub_source = new shapes.standard.Link({
-                    source: {
-                        id: source_block,
-                        port: source_path,
-                        anchor: {
-                            name: 'center'
-                        }
-                    },
-                        target: {
-                        id: source_block,
-                        port: source_path,
-                        anchor: {
-                            name: 'customAnchor'
+                // if not a module
+                if (current_path.length != source_block.length) {
+                    let added_stub_source = new shapes.standard.Link({
+                        source: {
+                            id: source_block,
+                            port: source_path,
+                            anchor: {
+                                name: 'center'
+                            }
                         },
-                        connectionPoint: {
-                            name: 'anchor'
+                            target: {
+                            id: source_block,
+                            port: source_path,
+                            anchor: {
+                                name: 'customAnchor'
+                            },
+                            connectionPoint: {
+                                name: 'anchor'
+                            }
                         }
-                    }
-                });
-                added_stub_source.attr({
-                    line: {
-                        'stroke': settings_dict['link']['color'],
-                        'stroke-width': settings_dict['link']['strokeWidth'],
-                        targetMarker: {'type': 'none'},
-                    },
-                    z: 0,
-                });
-                added_stub_source.appendLabel({
-                    attrs: {
-                        text: {
-                            text: link['signal'],
-                            fontFamily: settings_dict['common']['fontFamily'],
-                            fontSize: settings_dict['stubs']['fontSize'],
-                            //textVerticalAnchor: "middle",
-                            textAnchor: "start",
-                        }
-                    },
-                    position: {
-                        distance: .1,
-                        offset: -5,
-                        angle: 0,
-                        args: {
-                            keepGradient: true
-                        }
-                    }
-                });
-
-                let added_stub_target = new shapes.standard.Link({
-                    source: {
-                        id: target_block,
-                        port: target_path,
-                        anchor: {
-                            name: 'center'
-                        }
-                    },
-                        target: {
-                        id: target_block,
-                        port: target_path,
-                        anchor: {
-                            name: 'customAnchor'
+                    });
+                    added_stub_source.attr({
+                        line: {
+                            'stroke': settings_dict['link']['color'],
+                            'stroke-width': settings_dict['link']['strokeWidth'],
+                            targetMarker: {'type': 'none'},
                         },
-                        connectionPoint: {
-                            name: 'anchor'
+                        z: 0,
+                    });
+                    added_stub_source.appendLabel({
+                        attrs: {
+                            text: {
+                                text: link['signal'],
+                                fontFamily: settings_dict['common']['fontFamily'],
+                                fontSize: settings_dict['stubs']['fontSize'],
+                                //textVerticalAnchor: "middle",
+                                textAnchor: "start",
+                            }
+                        },
+                        position: {
+                            distance: .1,
+                            offset: -5,
+                            angle: 0,
+                            args: {
+                                keepGradient: true
+                            }
                         }
-                    }
-                });
-                added_stub_target.attr({
-                    line: {
-                        'stroke': settings_dict['link']['color'],
-                        'stroke-width': settings_dict['link']['strokeWidth'],
-                        targetMarker: {'type': 'none'},
-                    },
-                    z: 0,
-                });
-                added_stub_target.appendLabel({
-                    attrs: {
-                        text: {
-                            text: link['signal'],
-                            fontFamily: settings_dict['common']['fontFamily'],
-                            fontSize: settings_dict['stubs']['fontSize'],
-                            textAnchor: "start",
+                    });
+                    graph.addCell(added_stub_source);
+                }
+                // if not a module
+                if (current_path.length != target_block.length) {
+                    let added_stub_target = new shapes.standard.Link({
+                        source: {
+                            id: target_block,
+                            port: target_path,
+                            anchor: {
+                                name: 'center'
+                            }
+                        },
+                            target: {
+                            id: target_block,
+                            port: target_path,
+                            anchor: {
+                                name: 'customAnchor'
+                            },
+                            connectionPoint: {
+                                name: 'anchor'
+                            }
                         }
-                    },
-                    position: {
-                        distance: .1,
-                        offset: -5,
-                        angle: 0,
-                        args: {
-                            keepGradient: true
+                    });
+                    added_stub_target.attr({
+                        line: {
+                            'stroke': settings_dict['link']['color'],
+                            'stroke-width': settings_dict['link']['strokeWidth'],
+                            targetMarker: {'type': 'none'},
+                        },
+                        z: 0,
+                    });
+                    added_stub_target.appendLabel({
+                        attrs: {
+                            text: {
+                                text: link['signal'],
+                                fontFamily: settings_dict['common']['fontFamily'],
+                                fontSize: settings_dict['stubs']['fontSize'],
+                                textAnchor: "start",
+                            }
+                        },
+                        position: {
+                            distance: .1,
+                            offset: -5,
+                            angle: 0,
+                            args: {
+                                keepGradient: true
+                            }
                         }
-                    }
-                });
-
-                graph.addCell(added_stub_source);
-                graph.addCell(added_stub_target);
+                    });
+                    graph.addCell(added_stub_target);
+                }
             }
         }
 
@@ -731,10 +732,12 @@ function createComponent(element, parent, path) {
 
     addPins(component, element, path);
 
-    //resizeBasedOnLabels(component, ports_dict);
+    //component.resizeBasedOnContent();
     //resizeBasedOnPorts(component, ports_dict);
 
     component.addTo(graph);
+
+    //console.log(component.getPorts());
 
     if (parent) {
         addElementToElement(component, parent);
@@ -747,6 +750,10 @@ function createBlock(element, parent, path) {
     let title = getElementTitle(element);
     const block = new AtoBlock({
         id: path,
+        size: {
+            width: 200,
+            height: 100
+        },
         attrs: {
             label: {
                 text: title,
@@ -815,55 +822,63 @@ function applyParentConfig(element, child_attrs) {
     }
 }
 
-async function generateJointjsGraph(circuit, path = null, parent = null, child_attrs = null) {
+async function generateJointjsGraph(circuit, max_depth, current_depth = 0, path = null, parent = null, child_attrs = null) {
     let downstream_path;
+    let new_depth = current_depth + 1;
 
-    for (let element of circuit) {
-        var joint_object = null;
+    if (current_depth <= max_depth) {
+        for (let element of circuit) {
+            var joint_object = null;
 
-        if (element['type'] == 'component') {
-            downstream_path = concatenatePathAndName(path, element['name']);
-            joint_object = createComponent(element, parent, downstream_path);
-            element['jointObject'] = joint_object;
-            if (parent) {
-                addElementToElement(joint_object, parent);
-            }
-            applyParentConfig(element, child_attrs);
-        }
-
-        // If it is a block, create it and instantiate the contents within it
-        else if (element['type'] == 'module') {
-            downstream_path = concatenatePathAndName(path, element['name']);
-            // Create the module
-            joint_object = createBlock(element, parent, downstream_path);
-            element['jointObject'] = joint_object;
-            if (parent) {
-                addElementToElement(joint_object, parent);
+            if (element['type'] == 'component') {
+                downstream_path = concatenatePathAndName(path, element['name']);
+                joint_object = createComponent(element, parent, downstream_path);
+                element['jointObject'] = joint_object;
+                if (parent) {
+                    addElementToElement(joint_object, parent);
+                }
+                applyParentConfig(element, child_attrs);
             }
 
-            // Call the function recursively on children
-            await generateJointjsGraph(element['blocks'], downstream_path, joint_object, element['config']['child_attrs']);
+            // If it is a block, create it and instantiate the contents within it
+            else if (element['type'] == 'module') {
+                downstream_path = concatenatePathAndName(path, element['name']);
+                // Create the module
+                joint_object = createBlock(element, parent, downstream_path);
+                element['jointObject'] = joint_object;
+                if (parent) {
+                    addElementToElement(joint_object, parent);
+                }
 
-            addLinks(element, downstream_path)
+                // Call the function recursively on children
+                if (await generateJointjsGraph(element['blocks'], max_depth, new_depth, downstream_path, joint_object, element['config']['child_attrs'])) {
+                    addLinks(element, downstream_path)
 
-            applyParentConfig(element, child_attrs);
-            //addLinks(element['links']);
-            //addStubs(element['stubs']);
-            //created_element.fitAncestorElements();
+                    applyParentConfig(element, child_attrs);
+                }
 
-            //applyConfig(element, blocks_config);
+                //addLinks(element['links']);
+                //addStubs(element['stubs']);
+                //created_element.fitAncestorElements();
+
+                //applyConfig(element, blocks_config);
+            }
+
+            else if (element['type'] == 'file') {
+                downstream_path = concatenatePathAndName(path, element['name']);
+                await generateJointjsGraph(element['blocks'], max_depth, new_depth, downstream_path);
+            }
+
+            else {
+                // raise an error because we don't know what to do with this element
+                // TODO: raise an error
+                console.log('Unknown element type: ' + element['type']);
+            }
         }
-
-        else if (element['type'] == 'file') {
-            downstream_path = concatenatePathAndName(path, element['name']);
-            await generateJointjsGraph(element['blocks'], downstream_path);
-        }
-
-        else {
-            // raise an error because we don't know what to do with this element
-            // TODO: raise an error
-            console.log('Unknown element type: ' + element['type']);
-        }
+        return true;
+    }
+    else {
+        return false;
     }
 }
 
@@ -1003,7 +1018,7 @@ async function loadCircuit() {
 
     let config_populated_circuit = await populateConfigFromBackend(circuit_data);
     console.log(config_populated_circuit);
-    generateJointjsGraph(config_populated_circuit);
+    generateJointjsGraph(config_populated_circuit, 4);
 }
 
 loadCircuit();
