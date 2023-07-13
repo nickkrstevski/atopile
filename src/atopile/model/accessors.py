@@ -2,7 +2,7 @@ from typing import List, Union, Optional, Iterable
 
 import igraph as ig
 
-from atopile.model.model import EdgeType, Model, VertexType, PATH_SEPERATOR
+from atopile.model.model import EdgeType, Model, VertexType, MODULE_PATH_SEPERATOR
 
 EdgeIterable = Union[ig.EdgeSeq, List[ig.Edge]]
 

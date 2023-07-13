@@ -123,10 +123,15 @@ class Model:
 
         if not (part_of or option_of):
             path = ref
-        elif part_of:
-            path = f"{part_of}{MODULE_PATH_SEPERATOR}{ref}"
-        elif option_of:
-            path = f"{option_of}{MODULE_PATH_SEPERATOR}{ref}"
+        else:
+            parent_path = part_of or option_of
+            if parent_path not in self.graph.vs["path"]:
+                raise ValueError(f"Parent path {parent_path} does not exist")
+            # TODO: this is hacky, make sure to avoid it in corev3
+            if self.graph.vs.find(path_eq=parent_path)["type"] == VertexType.file.name:
+                path = f"{parent_path}:{ref}"
+            else:
+                path = f"{parent_path}{MODULE_PATH_SEPERATOR}{ref}"
 
         if path in self.graph.vs["path"]:
             raise ValueError(f"Path {path} already exists")

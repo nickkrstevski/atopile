@@ -7,8 +7,8 @@ from atopile.model.accessors import ModelVertexView
     "v1_path, v2_path",
     [
         ("dummy_file.ato", "dummy_file.ato"),
-        ("dummy_file.ato/dummy_module", "dummy_file.ato:dummy_module"),
-        ("dummy_file.ato/dummy_module/dummy_comp1", "dummy_file.ato:dummy_module.dummy_comp1"),
+        ("dummy_file.ato:dummy_module", "dummy_file.ato:dummy_module"),
+        ("dummy_file.ato:dummy_module.dummy_comp1", "dummy_file.ato:dummy_module.dummy_comp1"),
     ]
 )
 def test_v1_to_v2(dummy_model: Model, v1_path, v2_path):
