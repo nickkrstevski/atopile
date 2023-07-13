@@ -1,6 +1,6 @@
 from pytest import mark
 from atopile.model.model import Model
-from atopile.targets.netlist.nets import resolve_name, find_nets, find_net_names
+from atopile.targets.netlist.nets import resolve_abs_name, find_nets, find_net_names
 
 expected_nets = {
     "dummy_file.ato:dummy_module.dummy_comp0.sig0-sig1": [
@@ -47,7 +47,7 @@ def test_nothing():
 
 def test_naming(dummy_model: Model):
     nets = find_nets(dummy_model)
-    net_names = {resolve_name(n) for n in nets}
+    net_names = {resolve_abs_name(n)[1] for n in nets}
 
     assert net_names == set(expected_nets.keys())
 
