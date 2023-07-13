@@ -10,7 +10,7 @@ import igraph as ig
 log = logging.getLogger(__name__)
 
 
-PATH_SEPERATOR = "/"
+MODULE_PATH_SEPERATOR = "."
 
 class VertexType(Enum):
     file = "file"
@@ -64,7 +64,7 @@ class Model:
         class_children_idxs = part_of_graph.subcomponent(class_root.index, mode="in")
         class_children = part_of_graph.vs[class_children_idxs]
         sg = self.graph.subgraph(class_children)
-        instance_path = part_of_path + PATH_SEPERATOR + instance_ref
+        instance_path = part_of_path + MODULE_PATH_SEPERATOR + instance_ref
 
         # replace the paths and references of all the blocks/subcomponents
         class_paths = copy.copy(sg.vs["path"])
@@ -124,9 +124,9 @@ class Model:
         if not (part_of or option_of):
             path = ref
         elif part_of:
-            path = f"{part_of}{PATH_SEPERATOR}{ref}"
+            path = f"{part_of}{MODULE_PATH_SEPERATOR}{ref}"
         elif option_of:
-            path = f"{option_of}{PATH_SEPERATOR}{ref}"
+            path = f"{option_of}{MODULE_PATH_SEPERATOR}{ref}"
 
         if path in self.graph.vs["path"]:
             raise ValueError(f"Path {path} already exists")
