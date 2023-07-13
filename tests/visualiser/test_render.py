@@ -1,12 +1,10 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from atopile.model.model import Model
 from atopile.visualizer.render import build_view
 
-@pytest.mark.xfail
+
 def test_build_from_root(dummy_model: Model):
     with open(Path(__file__).parent / "expected-circuit.json") as f:
         expected = json.load(f)
