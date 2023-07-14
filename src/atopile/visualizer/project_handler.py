@@ -65,10 +65,13 @@ class ProjectHandler:
         return vis_data
 
     async def update_config(self, filename: str, updates: dict):
-        if filename not in (await self.get_model()).src_files:
+        # filename is expected to be ~/<project_root>/some_file.vis.json
+        # to get the ato source file, let's strip the .json
+        ato_filename = Path(filename).with_suffix("").with_suffix(".ato")
+        if str(ato_filename) not in (await self.get_model()).src_files:
             raise FileNotFoundError
 
-        vis_file = self.project.root / Path(filename).with_suffix(".vis.yaml")
+        vis_file = self.project.root / Path(filename).with_suffix(".yaml")
 
         if vis_file.exists():
             with vis_file.open() as f:
