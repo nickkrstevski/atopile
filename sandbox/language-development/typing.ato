@@ -1,0 +1,53 @@
+# We need typing to support proper validation and design quality
+# While the inheritance mechanism described in `inheritance.ato` is one mechanism for typing, another is to follow in python's footsteps
+# We can duck-type interfaces, while encapsulating the typing information in a specific class. This provides
+# - improved interoperability between libs
+# - variable rigour (read "appropriate rigour" for your application)
+
+# It may be a better fit for signals, so that's where this example will start
+
+# Signals have the means to be in a bunch of different states, so we need to capture that and the types of data they can encapsulate
+
+collection i2c:
+    type sda
+    type scl
+
+    type master
+    type minion
+
+component SomeIC:
+    signal vcc ~ pin 1
+    signal gnd ~ pin 2
+    signal sda: i2c.sda && i2c.master ~ pin 3
+    signal scl: i2c.scl && i2c.master ~ pin 4
+
+# there's a few things missing here:
+# - the fact that these are all digital signals
+# - the fact that these are all 3.3V signals
+# - the fact that these are all open-drain signals
+# - the fact that these are all bidirectional signals
+# - the fact that these are all 100kHz signals
+# - the fact that these are all 5V tolerant signals
+# - the types of the power pins
+
+# TODO: study up more on python typing
+
+# current rules in mind:
+# - typing is static, if something is reconfigured during operation it's a Union of two types
+# - types should have properties; eg. on voltage, off voltage, current sunk, sourced etc...
+# - types should have some compatability with other types; eg. what else is allowed on the net
+
+collection i2c:
+    type sda from Union[DigitalInput, Open]:
+        nominalvoltage 3.3V
+        current 3mA
+        open_drain
+        bidirectional
+        speed 100kHz
+        tolerance 5V
+        compatible sda, scl, gnd
+
+feature I2CBus:
+    required signal sda
+    required signal scl: 
+    required signal gnd: Gnd
