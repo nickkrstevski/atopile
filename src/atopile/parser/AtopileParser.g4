@@ -21,17 +21,19 @@ import_stmt: 'import' name_or_attr 'from' string;
 assign_stmt: name_or_attr '=' assignable;
 assignable: string | NUMBER | name_or_attr | new_stmt | boolean_;
 
-connect_stmt: connectable ('~' connectable)+;
-connectable: name_or_attr | name_or_attr '.' INTEGER | signaldef_stmt | pindef_stmt;
+connect_stmt: connectable '~' connectable;
+connectable: name_or_attr | numerical_pin_ref | signaldef_stmt | pindef_stmt;
 
 signaldef_stmt: ('private')? 'signal' name;
-pindef_stmt: 'pin' name | INTEGER;
+pindef_stmt: 'pin' (name | totally_an_integer);
 with_stmt: 'with' name_or_attr;
 
 new_stmt: 'new' name_or_attr;
 
 name_or_attr: attr | name;
+numerical_pin_ref: name_or_attr '.' totally_an_integer;
 attr: name ('.' name)+;
+totally_an_integer : NUMBER;
 name : NAME;
 string : STRING;
 boolean_ : ('True' | 'False');
