@@ -21,11 +21,11 @@ import_stmt: 'import' name_or_attr 'from' string;
 assign_stmt: name_or_attr '=' assignable;
 assignable: string | NUMBER | name_or_attr | new_stmt | boolean_;
 
-connect_stmt: connectable '~' connectable;
-connectable: name_or_attr | signaldef_stmt | pindef_stmt;
+connect_stmt: connectable ('~' connectable)+;
+connectable: name_or_attr | name_or_attr '.' INTEGER | signaldef_stmt | pindef_stmt;
 
 signaldef_stmt: ('private')? 'signal' name;
-pindef_stmt: 'pin' name;
+pindef_stmt: 'pin' name | INTEGER;
 with_stmt: 'with' name_or_attr;
 
 new_stmt: 'new' name_or_attr;
