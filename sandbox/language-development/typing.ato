@@ -8,7 +8,7 @@
 
 # Signals have the means to be in a bunch of different states, so we need to capture that and the types of data they can encapsulate
 
-collection i2c:
+block i2c:
     type sda
     type scl
 
