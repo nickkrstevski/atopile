@@ -1,5 +1,7 @@
 import logging
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List
@@ -60,7 +62,7 @@ class Builder(AtopileParserVisitor):
 
     @property
     def current_file(self):
-        return self._file_stack[0]
+        return self._file_stack[0]  # FIXME: shouldn't this be -1?
 
     @contextmanager
     def working_block(self, ref: str):
@@ -364,6 +366,46 @@ class Builder(AtopileParserVisitor):
 
     def get_string(self, ctx: AtopileParser.StringContext) -> str:
         return ctx.getText().strip("\"'")
+
+
+class ParallelParser(AtopileParserVisitor):
+    def __init__(
+        self,
+        bob: Builder,
+    ) -> None:
+        self.bob = bob
+        self.executor = ThreadPoolExecutor(max_workers=16)
+        self._accounted_for_files = set()
+        self._accounted_for_files_lock = threading.Lock()
+        self._file_stack: List[str] = []
+
+    @contextmanager
+    def working_file(self, abs_path: Path):
+            self._file_stack.append(abs_path)
+            yield
+            self._file_stack.pop()
+
+    @property
+    def current_file(self):
+        return self._file_stack[-1]
+
+    def visitImport_stmt(self, ctx: AtopileParser.Import_stmtContext):
+        import_filename = self.get_string(ctx.string())
+
+        abs_path, std_path = self.bob.project.resolve_import(
+            import_filename, self.current_file
+        )
+
+        if std_path in self._file_stack:
+            raise LanguageError(
+                f"Circular import detected: {std_path}",
+                self._file_stack[-1],
+                ctx.start.line,
+                ctx.start.column,
+            )
+
+        with self.working_file(abs_path):
+            tree = self.bob.parse_file(abs_path)
 
 
 def build_model(project: Project, config: BuildConfig) -> Model:
