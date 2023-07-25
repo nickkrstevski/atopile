@@ -47,6 +47,9 @@ block HalfBridge:
 
 block TopLevel:
     HalfBridge half_bridge
+    # we need an operator which switches out a selected component to a specific type
+    # the type must be a matching type to the original definition (eg. the same type or a sub-type)
+    # in this case, we're swtiching out the FETs in the half-bridge with two different types of FET
     half_bridge.high_fet -> SomeNMOS
     half_bridge.low_fet -> ThreeSomeNMOS
 
@@ -150,7 +153,7 @@ block ParallelNMOS(int fet_count = 3) from NMOS:
 ##### selectors
 
 # we can also imagine wanting to select a subset of a list
-block ResistorLadder(int resistor_count = 2):
+block ResistorLadder(int resistor_count = 2) from Module:
     Signal vin
     Signal vout[resistor_count-1]
     Signal gnd
@@ -165,9 +168,31 @@ block ResistorLadder(int resistor_count = 2):
 
     resistors[:-2].pin[2] ~ vout
 
+# we should also be able to select "all the elements of type ... in a context"
+*Resistor  # all Resistors in the current context
+**.*Resistor  # all Resistors in the current context and all child contexts
+*.**.*Resistor  # all Resistors in all child contexts
+*.*.*.*Resistor  # all Resistors in great-grandchild contexts
+
+# this is expected to be expecially useful in cases you're configuring something from a high-level, eg:
+block ServoDrive from Module:
+    ...
+    HalfBridge a
+    HalfBridge b
+    HalfBridge c
+    # switch all the FETs in all the half-bridges to the same type
+    *HalfBridge.*NMOS -> SomeNMOS
+
 ##### partials
 
 # we can foreseeably want to define a block which is a partial of another block
 # eg. if a package contains two op-amps and we want to use each of them on different circuits
 
-# TODO: 
+block DualOpAmp from Component:
+    Signal vcc
+    Signal gnd
+
+    block opamp[:2] from Opamp:
+        parent.vcc ~ vcc
+        parent.gnd ~ gnd
+
