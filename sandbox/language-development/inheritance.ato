@@ -53,6 +53,7 @@ block TopLevel:
     half_bridge.high_fet -> SomeNMOS
     half_bridge.low_fet -> ThreeSomeNMOS
 
+
 ##### typing of signals
 
 node Signal:
@@ -79,6 +80,7 @@ union GPIO = (DigitalOutput | DigitalInput | AnalogOutput | AnalogInput)
 
 block RP2040:
     GPIO gpio[:32]
+
 
 ##### maths; relationships and limits
 
@@ -109,6 +111,7 @@ block VDiv:
     vout.nominal_voltage == vin.nominal_voltage * ratio
     ohms total_resistance == r1.value + r2.value
 
+
 # say we continue with this example of the half-bridge
 block HalfBridge:
     PowerIn vin
@@ -127,11 +130,13 @@ block HalfBridge:
     gate.on_voltage > 6V  # all the gate.on_voltage range must be above 6V
     gate.off_voltage < 2V  # all the gate.off_voltage range must be below 2V
     # this equation must always be satified considering the ranges
+    # TODO: the maths in this section deserves more specific attention
     gate_resistor.value == gate.on_voltage / gate_current_target - gate.on_stiffness
 
     vin ~ high_fet.drain
     vout ~ high_fet.source, low_fet.drain
     gnd ~ low_fet.source
+
 
 ##### repetition
 
@@ -150,10 +155,19 @@ block ParallelNMOS(int fet_count = 3) from NMOS:
     drain ~ fet.drain
     source ~ fet.source
 
+
 ##### selectors
 
 # we can also imagine wanting to select a subset of a list
+# note, this block has a int parameter
+# undecided on this specific feature yet, but if we do roll with it,
+# we should consider this something like a "preprocessor condition".
+# That is, it's entirely evaluated and immutable at pre-compiling
 block ResistorLadder(int resistor_count = 2) from Module:
+    # just because the it's a preprocessor parameter, doesn't mean you can't apply
+    # limits to it and do maths on it just like you would with other variables
+    resistor_count >= 2
+
     Signal vin
     Signal vout[resistor_count-1]
     Signal gnd
@@ -174,6 +188,12 @@ block ResistorLadder(int resistor_count = 2) from Module:
 *.**.*Resistor  # all Resistors in all child contexts
 *.*.*.*Resistor  # all Resistors in great-grandchild contexts
 
+# another concept here would be to use something that's potentially more familiar; a builtin function. eg.:
+all().all(Resistor)
+# or, "any" being a keywork/builtin function that matches and depth of context as well (similar to "**")
+any.all(Resistor)
+# I'm still feeling this idea out, but since it reads literally, I kinda like it
+
 # this is expected to be expecially useful in cases you're configuring something from a high-level, eg:
 block ServoDrive from Module:
     ...
@@ -182,6 +202,29 @@ block ServoDrive from Module:
     HalfBridge c
     # switch all the FETs in all the half-bridges to the same type
     *HalfBridge.*NMOS -> SomeNMOS
+    # or
+    all(HalfBridge).all(NMOS) -> SomeNMOS
+
+# the other powerful method we should consider is the ability to select a "fresh"
+# "fresh" means the selector will only match things that haven't been previously selected
+# I see some analogs here to the "next" builtin in python
+# this is perhaps another case where the builtins/named functions compared to glob matching are more useful
+# eg.:
+block SomeBlock from Module:
+    Resistor resistors[:3]
+
+    # note we need to consider the validity of this = syntax,
+    # since we're kinda just declaring a reference/pointer to the resource
+    Resistor resistor_1 = resistors[1]  # select it explicitly
+    Resistor resistor_0 = fresh(Resistor)  # selects the next untouched resistor in the current context
+    Resistor resistor_2 = fresh(Resistor)  # ^
+    fresh(Resistor)  # throws a compiler error because there are no more resistors
+
+# in a lot of cases you just want "an" i2c bus from a micro, or "a" uart
+# this fresh mechanism allows you to do that without having to explicitly naming them
+# it also provides an imperative deconfliction method with other components that might be using the same resources
+
+
 
 ##### partials
 
@@ -189,10 +232,20 @@ block ServoDrive from Module:
 # eg. if a package contains two op-amps and we want to use each of them on different circuits
 
 block DualOpAmp from Component:
-    Signal vcc
-    Signal gnd
+    Signal vcc ~ pin[1]
+    Signal gnd ~ pin[2]
 
-    block opamp[:2] from Opamp:
-        parent.vcc ~ vcc
-        parent.gnd ~ gnd
+    Opamp opamp[:2]
 
+    opamp.vcc ~ vcc
+    opamp.gnd ~ gnd
+
+    # note, that if we want to connect these up properly to their
+    #respective pins, we can simply do that outside the block in question
+    opamp[0].in_pos ~ pin[3]
+    opamp[0].out_pos ~ pin[4]
+    # etc...
+
+# this way we can trivially reference a "partial" section of a block, eg. one of the opamps
+dual_op_amp = DualOpAmp
+dual_op_amp.opamp[0]
