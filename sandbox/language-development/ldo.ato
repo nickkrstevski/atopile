@@ -1,0 +1,52 @@
+import Vdiv from "Vdiv.ato"
+
+block NMOS:
+    signal gate
+    signal drain
+    signal source
+    signal gnd
+
+block Power:
+    signal vcc
+    signal gnd
+
+block Feedback:
+    signal top
+    signal bottom
+
+block Opamp:
+    Feedback feedback
+    signal out
+    Power power_in
+
+block TPS7H1111 from Opamp:
+    power_in.gnd.voltage = -0.5v to 0.5v
+    # How do we set a lower boundary only?
+    power_in.vcc.voltage = 0.85v to 7v
+
+block Ldo:
+    signal vin
+    signal vout
+    Power power_in
+
+    NMOS Nmos
+
+    TPS7H1111 opamp1
+    opamp1.power_in ~ power_in
+    opamp1.out ~ Nmos.gate
+
+    Vdiv vdiv
+    vdiv.input ~ vout
+    vdiv.output ~ opamp.feedback.bottom
+    vdiv.gnd ~ power_in.gnd
+
+    opamp1.feedback.top ~ vdiv.output
+
+block Debug:
+    power_in.gnd.voltage = -0.5v to 0.5v
+    # How do we set a lower boundary only?
+    power_in.vcc.voltage = 6v
+
+    Ldo ldo
+
+    

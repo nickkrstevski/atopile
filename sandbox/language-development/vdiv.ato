@@ -1,0 +1,25 @@
+block Resistor:
+    signal a
+    signal b
+
+block Vdiv:
+    signal input
+    signal output
+    signal gnd
+
+    Resistor res1
+    Resistor res2
+
+    input ~ res1.a
+    output ~ res1.b, res2.a
+    gnd ~ res2.b
+
+
+## Resolver file
+
+component Resistor_comp from Resistor:
+    a ~ pin[1]
+    b ~ pin[2]
+    footprint = "0402"
+
+Resistor apply Resistor_comp
