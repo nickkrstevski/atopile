@@ -2,7 +2,10 @@ block Resistor:
     signal a
     signal b
 
-block Vdiv:
+    Ohm value
+    Watt max_power
+
+block Vdiv(voltage_ratio, total_resistance):
     signal input
     signal output
     signal gnd
@@ -10,16 +13,23 @@ block Vdiv:
     Resistor res1
     Resistor res2
 
+    Voltage voltage_ratio
+    Ohm total_resistance
+
+    res1.value = total_resistance * (1 - voltage_ratio)
+    res2.value = total_resistance * voltage_ratio
+
     input ~ res1.a
     output ~ res1.b, res2.a
     gnd ~ res2.b
 
-
-## Resolver file
+## Resolver file for netlist, BOMs
 
 component Resistor_comp from Resistor:
     a ~ pin[1]
     b ~ pin[2]
     footprint = "0402"
+    value.modifier() = normalize_to_std()
+    max_power = compute()
 
 Resistor apply Resistor_comp
