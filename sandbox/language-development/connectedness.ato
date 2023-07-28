@@ -58,6 +58,8 @@ SomeNMOS apply NMOS_3_pin
 ThreeSomeNMOS.n3 apply NMOS_4_pin
 
 
+### Example for a harness
+
 block ConnectorExample:
     signal vcc
     signal scl
@@ -71,7 +73,7 @@ block HarnessExample:
 
     # We should be able to name vertices so we can associate settings to them
     wires_1 = con_1 ~ con_2
-    wires_2 = con_1 ~ con_2
+    wires_2 = con_2 ~ con_3
 
 ### Resolver file
 
