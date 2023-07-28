@@ -1,0 +1,83 @@
+block NMOS:
+    signal gate
+    signal drain
+    signal source
+    signal gnd
+
+block SomeNMOS from NMOS:
+    gate.nominal_voltage = 0V to 10V
+
+
+block ThreeSomeNMOS from NMOS:
+    SomeNMOS n1, n2, n3
+    # If two blocks are connected, it will try to connect all the same pins together
+    self ~ n1, n2, n3
+    # This could also be valid
+    self.NMOS ~ n1, n2, n3
+
+block HalfBridge:
+    signal vin
+    signal vout
+    signal gate
+    signal gnd
+
+    NMOS high_fet
+    NMOS low_fet
+
+    vin ~ high_fet.drain
+    vout ~ high_fet.source, low_fet.drain
+    gate ~ high_fet.gate, low_fet.gate
+    gnd ~ low_fet.source, low_fet.gnd, high_fet.gnd
+
+block TopLevel:
+    HalfBridge half_bridge
+    half_bridge.high_fet -> SomeNMOS
+    half_bridge.low_fet -> ThreeSomeNMOS
+
+
+### Resolver file
+
+# There is no reason to introduce the component in the .ato file.
+component NMOS_3_pin from NMOS:
+    gate ~ pin[1]
+    drain ~ pin[2]
+    source ~ pin[3]
+    footprint = "sot23"
+
+component NMOS_4_pin from NMOS:
+    gate ~ pin[1]
+    drain ~ pin[2]
+    source ~ pin[3]
+    gnd ~ pin[4]
+    footprint = "TSSOP"
+
+# This means that the 3 pin component is applied to all SomeNMOS instances
+SomeNMOS apply NMOS_3_pin
+
+# In this case, the settings from NMOS_4_pin supersede the ones from the 3 pin nmos.
+ThreeSomeNMOS.n3 apply NMOS_4_pin
+
+
+block ConnectorExample:
+    signal vcc
+    signal scl
+    signal sda
+    signal gnd
+
+block HarnessExample:
+    ConnectorExample con_1
+    ConnectorExample con_2
+    ConnectorExample con_3
+
+    # We should be able to name vertices so we can associate settings to them
+    wires_1 = con_1 ~ con_2
+    wires_2 = con_1 ~ con_2
+
+### Resolver file
+
+harness i2c from HarnessExample:
+    wires_1.gnd.color = black
+    wires_2.gnd.color = black
+
+    wires_1.length = 10cm
+    wires_2.length = 20cm
