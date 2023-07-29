@@ -1,0 +1,21 @@
+# Example 1 - VDiv
+
+# I'm not entirely sure whether we want them as builtins,
+# or merely import them from a standard lib like I am here.
+import Resistor, Module, Signal from "std/std.ato"
+
+block ResistorLadder(count=2) from Module:
+    Signal top, bottom
+    Signal output[count-1]
+    Resistor resistors[count]
+
+    resistors[0].pin[1] ~ top
+    resistors[:-1].pin[2] ~ output
+    resistors[1::2].pin[1] ~ resistors[::2].pin[1]
+    resistors[-1].pin[2] ~ bottom
+
+    resistance total_resistance == sum(resistors.value)
+
+
+block VDiv from Module, ResistorLadder(2):
+    Signal output ~ super(ResistorLadder).output[0]
