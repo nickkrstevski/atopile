@@ -1,5 +1,7 @@
 // TODO: the root cell ID has a colon in it, which there shouldn't be
 
+//import { settings_dict } from "./vis_settings";
+
 const { shapes, util, dia, anchors } = joint;
 
 // Visual settings for the visualizer
@@ -543,8 +545,8 @@ function getLinkAddress(port, current_path, embedded_cells) {
 
 function addLinks(element, current_path, embedded_cells) {
     for (let link of element['links']) {
-        source_address = getLinkAddress(link['source'], current_path, embedded_cells);
-        target_address = getLinkAddress(link['target'], current_path, embedded_cells);
+        let source_address = getLinkAddress(link['source'], current_path, embedded_cells);
+        let target_address = getLinkAddress(link['target'], current_path, embedded_cells);
 
         let is_stub = false;
         for (let link_config of ((element.config || {}).signals || [])) {
@@ -615,8 +617,8 @@ function addPins(jointJSObject, element, path) {
 
 function createComponent(element, parent, path) {
     let title = getElementTitle(element);
-    comp_width = measureText(title, settings_dict['component']['pin']['fontSize'], 'length') + 2 * settings_dict['component']['titleMargin'];
-    comp_height = measureText(title, settings_dict['component']['pin']['fontSize'], 'height') + 2 * settings_dict['component']['titleMargin'];
+    let comp_width = measureText(title, settings_dict['component']['pin']['fontSize'], 'length') + 2 * settings_dict['component']['titleMargin'];
+    let comp_height = measureText(title, settings_dict['component']['pin']['fontSize'], 'height') + 2 * settings_dict['component']['titleMargin'];
     var component = new AtoComponent({
         id: path,
         instance_name: element['name'],
@@ -802,6 +804,7 @@ async function generateJointjsGraph(circuit, max_depth, current_depth = 0, path 
 
 async function populateConfigFromBackend(circuit_dict, file_name = null) {
     let populated_circuit = [];
+    let config_location_name;
 
     for (let element of circuit_dict) {
         if (element.type == 'component') {
