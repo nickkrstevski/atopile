@@ -6,16 +6,111 @@ import Resistor, Module, Signal from "std/std.ato"
 
 block ResistorLadder(count=2) from Module:
     Signal top, bottom
-    Signal output[count-1]
+    Signal outputs[count-1]
     Resistor resistors[count]
 
     resistors[0].pin[1] ~ top
-    resistors[:-1].pin[2] ~ output
+    resistors[:-1].pin[2] ~ outputs
     resistors[1::2].pin[1] ~ resistors[::2].pin[1]
     resistors[-1].pin[2] ~ bottom
 
-    resistance total_resistance == sum(resistors.value)
+    # FIXME: I'm undecided whether the type should be the unit (Ohm), but then there's conflict between Ohm, kOhm, MOhm etc...
+    # of whether it's more accurately a resistance, in whatever unit the engineer desires - which is long, but IMO more accurate
+    Resistance total_resistance == sum(resistors.value)
 
 
 block VDiv from Module, ResistorLadder(2):
-    Signal output ~ super(ResistorLadder).output[0]
+    Signal output ~ outputs[0]
+
+    Float voltage_ratio == resistors[1].value / total_resistance
+    Voltage output_voltage == Voltage input_voltage * voltage_ratio
+
+
+# LDO
+
+# FIXME: assume we've imported things properly
+
+block GenericLDO from Component:
+    # Represents a generic LDO component
+    # FIXME: Note, these types are approximations of what might exist - they aren't part of the langauge spec
+    # , but can be built and spec'd within it. Don't bother nit-picking them
+    PowerInput v_in
+    Ground gnd
+    PowerOutput v_out
+    Signal adj
+
+    # FIXME: there's a bunch of ways we COULD spec optionality on signals
+    # (eg. what may be connected), but I haven't fully developed any ideas
+    Signal en
+
+    Voltage v_adj = unknown
+
+
+block LDOSupply from Module:
+    # This module spec's an PSU module using and LDO
+    PowerIn v_in
+    Signal v_out
+    Signal gnd
+    Voltage output_voltage
+
+    GenericLDO ldo
+    ldo.v_in ~ v_in
+    ldo.v_out ~ v_out
+    ldo.gnd ~ gnd
+
+    # voltage divider
+    VDiv feedback_div
+    output_voltage == feedback_div.input_voltage
+    feedback_div.output_voltage == ldo.v_adj
+    feedback_div.top ~ vout
+    feedback_div.bottom ~ gnd
+    feedback_div.output ~ ldo.adj
+
+    # input cap
+    # FIXME: ripple calculations to size caps
+    Capacitor input_cap
+    input_cap.value = 1uF
+    input_cap.pin[1] ~ ldo.v_in
+    input_cap.pin[2] ~ ldo.gnd
+    input_cap.footprint = "Capacitor_SMD:C_0603_1608Metric"
+
+    # output cap
+    Capacitor output_cap
+    output_cap.value = 1uF
+    output_cap.pin[1] ~ ldo.v_out
+    output_cap.pin[2] ~ ldo.gnd
+    output_cap.footprint = "Capacitor_SMD:C_0603_1608Metric"
+
+    # TODO: default connecting en to vin if it's not otherwise connected anywhere?
+    ldo.en ~ vin
+
+
+block LDK220M_R from GenericLDO:
+    v_in ~ pin[1]
+    v_out ~ pin[5]
+    gnd ~ pin[2]
+    adj ~ pin[4]
+    en ~ pin[3]
+
+    # NOTE: there's 3 kinds of equals we need to figure out
+    # == implies a direct mathematical relationship, eg. this equals that back and forward algebra and general solutions apply
+    # there's currently two uses of a single "=" that needs to be fixed:
+    # 1. to say "this will be anywhere in this range" -> eg. a real world tolerance on some resistor
+    # 2. to say "this must be in this range" -> eg. LDO voltage is 3.0V to 3.3V (which, yes, observed by the person using this circuit becomes the first)
+    # the important distinction is that when solving the circuit we're aiming to minimise the range occupied by a solution in 2., but must accept any input in 1.
+    v_adj = 1.185V +/- 0.1%
+
+    footprint = "lib:SOT-23-5_L3.0-W1.7-P0.95-LS2.8-BL"
+
+# Hooking it up in a circuit
+LDOSupply my_psu
+my_psu.ldo -> LDK220M_R
+my_psu.output_voltage = 3.3V +/- 0.1V
+# ...
+
+
+# Buck converter
+
+
+# Micro w/ STEMMA connector
+
