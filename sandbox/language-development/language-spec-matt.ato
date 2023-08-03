@@ -163,14 +163,13 @@ block ParallelNMOS(int fet_count = 3) from NMOS:
 # undecided on this specific feature yet, but if we do roll with it,
 # we should consider this something like a "preprocessor condition".
 # That is, it's entirely evaluated and immutable at pre-compiling
-block ResistorLadder(int resistor_count = 2) from Module:
+block ResistorLadder(resistor_count):
     # just because the it's a preprocessor parameter, doesn't mean you can't apply
     # limits to it and do maths on it just like you would with other variables
     resistor_count >= 2
 
-    Signal vin
+    Signal vin, gnd
     Signal vout[resistor_count-1]
-    Signal gnd
 
     Resistor resistors[:resistor_count]
 
@@ -191,18 +190,33 @@ block ResistorLadder(int resistor_count = 2) from Module:
 # another concept here would be to use something that's potentially more familiar; a builtin function. eg.:
 all().all(Resistor)
 # or, "any" being a keywork/builtin function that matches and depth of context as well (similar to "**")
-any.all(Resistor)
+any().all(Resistor)
 # I'm still feeling this idea out, but since it reads literally, I kinda like it
+
+any(Resistor).undefined().footprint = ...
+
+
+block a:
+    block b:
+        test = unknown
+        block c:
+            test = 1
+
+all(test) = 2
+
+block a:
+    block b:
+        test = unknown
+        block c:
+            test = unknown
+
+all(test) = 2
+a.b.c.test = 1
+
 
 # this is expected to be expecially useful in cases you're configuring something from a high-level, eg:
 block ServoDrive from Module:
-    ...
-    HalfBridge a
-    HalfBridge b
-    HalfBridge c
-    # switch all the FETs in all the half-bridges to the same type
-    *HalfBridge.*NMOS -> SomeNMOS
-    # or
+    HalfBridge a, b, c
     all(HalfBridge).all(NMOS) -> SomeNMOS
 
 # the other powerful method we should consider is the ability to select a "fresh"
@@ -212,18 +226,26 @@ block ServoDrive from Module:
 # eg.:
 block SomeBlock from Module:
     Resistor resistors[:3]
+    Resistor res4
 
     # note we need to consider the validity of this = syntax,
     # since we're kinda just declaring a reference/pointer to the resource
     Resistor resistor_1 = resistors[1]  # select it explicitly
-    Resistor resistor_0 = fresh(Resistor)  # selects the next untouched resistor in the current context
+    Resistor resistor_0 = fresh(resistor)  # selects the next untouched resistor in the current context
     Resistor resistor_2 = fresh(Resistor)  # ^
     fresh(Resistor)  # throws a compiler error because there are no more resistors
+
+block SomeMicro:
+    I2C i2c1, i2c2
+
+    i2c1.sda ~ pin[2]
+
+SomeMicro some_micro
+i2c_a = some_micro.fresh(I2C)
 
 # in a lot of cases you just want "an" i2c bus from a micro, or "a" uart
 # this fresh mechanism allows you to do that without having to explicitly naming them
 # it also provides an imperative deconfliction method with other components that might be using the same resources
-
 
 
 ##### partials
@@ -231,7 +253,7 @@ block SomeBlock from Module:
 # we can foreseeably want to define a block which is a partial of another block
 # eg. if a package contains two op-amps and we want to use each of them on different circuits
 
-block DualOpAmp from Component:
+block SomeDualOpAmp from Component:
     Signal vcc ~ pin[1]
     Signal gnd ~ pin[2]
 
@@ -249,3 +271,27 @@ block DualOpAmp from Component:
 # this way we can trivially reference a "partial" section of a block, eg. one of the opamps
 dual_op_amp = DualOpAmp
 dual_op_amp.opamp[0]
+
+
+class Test(super):
+class Test:
+    asdas
+
+
+##### interfaces
+
+node I2C:
+    Signal sda
+    Signal scl
+
+node I2CMaster from I2C:
+    pass
+
+block SomeIC:
+    I2C i2c1, i2c2
+
+SomeIC some_ic
+some_ic.i2c1 -> I2CMaster
+some_ic.i2c1 ~ some_ic.i2c2
+
+

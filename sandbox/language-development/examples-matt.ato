@@ -16,14 +16,20 @@ block ResistorLadder(count=2) from Module:
 
     # FIXME: I'm undecided whether the type should be the unit (Ohm), but then there's conflict between Ohm, kOhm, MOhm etc...
     # of whether it's more accurately a resistance, in whatever unit the engineer desires - which is long, but IMO more accurate
-    Resistance total_resistance == sum(resistors.value)
+    Resistance total_resistance = sum(resistors.value)
 
 
 block VDiv from Module, ResistorLadder(2):
     Signal output ~ outputs[0]
 
-    Float voltage_ratio == resistors[1].value / total_resistance
-    Voltage output_voltage == Voltage input_voltage * voltage_ratio
+    Float voltage_ratio = resistors[1].value / total_resistance
+    Voltage output_voltage = Voltage input_voltage * voltage_ratio
+
+
+VDiv vdiv
+vdiv.input_voltage = 5V +/- 100mV
+vdiv.total_resistance -> 10kOhm +/- 10%
+vdiv.output_voltage -> 2V +/- 100mV
 
 
 # LDO
@@ -60,8 +66,8 @@ block LDOSupply from Module:
 
     # voltage divider
     VDiv feedback_div
-    output_voltage == feedback_div.input_voltage
-    feedback_div.output_voltage == ldo.v_adj
+    output_voltage = feedback_div.input_voltage
+    feedback_div.output_voltage = ldo.v_adj
     feedback_div.top ~ vout
     feedback_div.bottom ~ gnd
     feedback_div.output ~ ldo.adj
@@ -93,7 +99,7 @@ block LDK220M_R from GenericLDO:
     en ~ pin[3]
 
     # NOTE: there's 3 kinds of equals we need to figure out
-    # == implies a direct mathematical relationship, eg. this equals that back and forward algebra and general solutions apply
+    # = implies a direct mathematical relationship, eg. this equals that back and forward algebra and general solutions apply
     # there's currently two uses of a single "=" that needs to be fixed:
     # 1. to say "this will be anywhere in this range" -> eg. a real world tolerance on some resistor
     # 2. to say "this must be in this range" -> eg. LDO voltage is 3.0V to 3.3V (which, yes, observed by the person using this circuit becomes the first)
