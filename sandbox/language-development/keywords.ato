@@ -97,7 +97,7 @@ node Interface:
 block Block:
     intf = new Interface
 
-component BlockComp from Block:
+block BlockComp from Block:
     intf.sig1 ~ pin[1]
     intf.sig1 ~ pin[2]["b"]
     # The "b" mention allows to further specifiy that the pin list element
@@ -105,6 +105,7 @@ component BlockComp from Block:
 
 block = new Block
 
+# This operator applies the comnponent aspects
 block <- BlockComp
 # In this case the nodes will automatically connect between each other
 
