@@ -1,0 +1,125 @@
+
+# TYPES:
+# There are xxx types:
+# block, component, node, signal and ?
+
+# RULES:
+# Blocks:
+# A block class has a name
+# A block instance has a name
+# A block can contain a block
+# A block can contain a component
+# A block can contain a node
+# A block can contain a signal
+# A block instance can be replaced by another one assuming
+# it's of the same class or a sub-class of that class
+
+# Components:
+# A component has a name
+# A component instance does not have a name and can only exist within a block
+# A component can carry information in fields
+# A component carries a pin list by default
+# The pin list can be connected to signals
+
+# A node class has a name
+# A node instance has a name
+# A node can contain a node
+# A node can contain a signal
+# A node can connect to a node of the same class or a subclass of that class
+
+# A signal class has a name
+# A signal intance has a name
+# A signal can contain electrical requirements
+# A signal can connect to a signal
+
+# CLASS DEFINITIONS:
+# types can be defined like so:
+
+block ABlock:
+    pass
+
+component AComponent:
+    pass
+
+node ANode:
+    pass
+
+signal ASignal:
+    pass
+
+# INSTANTIATION:
+# Instantiation can be created like so:
+a_block = new ABlock
+
+# components cannot be instantiated outside of blocks
+new AComponent
+
+a_node = new ANode
+
+a_signal = new ASignal
+
+# SUBCLASS:
+# Sub classes can be created like so:
+block BBlock from ABlock:
+    pass
+
+component BComponent from AComponent:
+    pass
+
+node BNode from ANode:
+    pass
+
+signal BSignal from ASignal:
+    pass
+
+# REPLACEMENT
+# A block instance can be replaced by another block instance like so:
+a_block -> BBlock
+
+# In this case, the instance is replaced by a new instance of the specified class
+
+# COMPONENT
+# A component can be added in a block class like so:
+a_block <- AComponent
+# A block can only contain information from a single component.
+# If a further addition is made, it replaces the content of the previous one
+a_block <- BComponent
+
+# SIGNAL TO PIN ASSOCIATION
+# In the creation of the netlist, if no signal to pin map is provided,
+# the component will be considered to have no pins.
+# There are two ways to associate pins to a block.
+# The first one looks like so:
+node Interface:
+    signal sig1
+    signal sig2
+
+block Block:
+    intf = new Interface
+
+component BlockComp from Block:
+    intf.sig1 ~ pin[1]
+    intf.sig1 ~ pin[2]["b"]
+    # The "b" mention allows to further specifiy that the pin list element
+    # 2 should be be replaced by the letter "b" in the netlist.
+
+block = new Block
+
+block <- BlockComp
+# In this case the nodes will automatically connect between each other
+
+# This first process is useful because it allows to abstract the block definition
+# from the component defintion. The component definition can be placed into another file for example.
+
+# This process is also more demanding because a matching node has to be created on the component side.
+# To facilitate the process, a component can also be intantiated within the block and connected directly.
+
+block Block:
+    intf = new Interface
+    # since the component has no name, the fields and pin maps are immediately availabe without using
+    # the dot operator "."
+    intf.sig1 ~ pin[1]
+    intf.sig1 ~ pin[2]["b"]
+    # The impacts of this would be that some names from the field are not available to use.
+
+
