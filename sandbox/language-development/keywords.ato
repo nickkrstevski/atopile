@@ -1,7 +1,7 @@
 
 # TYPES:
-# There are xxx types:
-# block, component, node, signal and ?
+# There are 3 types:
+# block, node and signal
 
 # RULES:
 # Blocks:
@@ -13,6 +13,10 @@
 # A block can contain a signal
 # A block instance can be replaced by another one assuming
 # it's of the same class or a sub-class of that class
+# A block can contain information about the component that it represents
+# The variables "value", "fields", "footprint", "symbol" and "pin" are protected within a block
+# The variables "footprint", "symbol" and "pin" are considered to be
+# part of component information.
 
 # Components:
 # A component has a name
@@ -38,9 +42,6 @@
 block ABlock:
     pass
 
-component AComponent:
-    pass
-
 node ANode:
     pass
 
@@ -51,9 +52,6 @@ signal ASignal:
 # Instantiation can be created like so:
 a_block = new ABlock
 
-# components cannot be instantiated outside of blocks
-new AComponent
-
 a_node = new ANode
 
 a_signal = new ASignal
@@ -63,64 +61,67 @@ a_signal = new ASignal
 block BBlock from ABlock:
     pass
 
-component BComponent from AComponent:
-    pass
-
 node BNode from ANode:
     pass
 
 signal BSignal from ASignal:
     pass
 
-# REPLACEMENT
+# CLASS INSTANCE REPLACEMENT
 # A block instance can be replaced by another block instance like so:
 a_block -> BBlock
+# In this case, the instance that exists within the variable a_block is replaced
+# by a new instance of the class specified after the arrow "->"
+# This operation is only allowed in cases where the replacement class if of the same
+# type or from a subclass of the same class.
 
-# In this case, the instance is replaced by a new instance of the specified class
+# COMPONENT SPECIFICATION
+block VanillaResistor:
+    footprint = "0603"
 
-# COMPONENT
-# A component can be added in a block class like so:
-a_block <- AComponent
+block RandomClass:
+    value = 1
+# Component variables ("footprint", "symbol" and "pin") can be added to a block class like so:
+a_block <- VanillaResistor
 # A block can only contain information from a single component.
-# If a further addition is made, it replaces the content of the previous one
-a_block <- BComponent
+# If a further addition is made, it replaces the content of the previous one.
+a_block <- RandomClass
+# a_block now contain the RandomClass information
 
 # SIGNAL TO PIN ASSOCIATION
-# In the creation of the netlist, if no signal to pin map is provided,
-# the component will be considered to have no pins.
-# There are two ways to associate pins to a block.
+# There are two ways to associate footprint pins to a block.
 # The first one looks like so:
+
+# We start by defining the aspects of our circuits while being agnostic of component selection
 node Interface:
-    signal sig1
-    signal sig2
+    signal anode
+    signal cathode
 
-block Block:
+block Diode:
     intf = new Interface
 
-block BlockComp from Block:
-    intf.sig1 ~ pin[1]
-    intf.sig1 ~ pin[2]["b"]
-    # The "b" mention allows to further specifiy that the pin list element
-    # 2 should be be replaced by the letter "b" in the netlist.
+my_diode = new Diode
 
-block = new Block
+# We then select the actual component we want to use and create the pin to signal association
+block DLLFSD01LPH47B from Diode:
+    intf.anode ~ pin[1]
+    intf.cathode ~ pin[2]["c"]
+    # The "c" mention allows to further specifiy that the pin list element
+    # 2 should be be replaced by the letter "c" when resolving the netlist.
 
-# This operator applies the comnponent aspects
-block <- BlockComp
-# In this case the nodes will automatically connect between each other
+# Fianlly, we apply the component information to the circuit
+my_diode <- DLLFSD01LPH47B
+# If we wanted to apply the same footprint to all diodes of that class, we could do so as well:
+Diode <- DLLFSD01LPH47B
 
-# This first process is useful because it allows to abstract the block definition
-# from the component defintion. The component definition can be placed into another file for example.
+# This first methode is useful to keep a circuit as agnostic as possible from final
+# implementation.
 
-# This process is also more demanding because a matching node has to be created on the component side.
-# To facilitate the process, a component can also be intantiated within the block and connected directly.
-
-block Block:
+# In the case where a very specific component and footprint have to be used, we can proceed like so:
+block KDS114E:
     intf = new Interface
-    # since the component has no name, the fields and pin maps are immediately availabe without using
-    # the dot operator "."
+    footprint = "SOD123"
     intf.sig1 ~ pin[1]
-    intf.sig1 ~ pin[2]["b"]
-    # The impacts of this would be that some names from the field are not available to use.
+    intf.sig1 ~ pin[2]["c"]
 
 
