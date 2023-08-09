@@ -2,7 +2,7 @@
 
 //import { settings_dict } from "./vis_settings";
 
-const { shapes, util, dia, anchors } = joint;
+import { shapes, util, dia, anchors } from 'jointjs';
 
 // Visual settings for the visualizer
 let settings_dict = {
@@ -69,7 +69,7 @@ function customAnchor(view, magnet, ref, opt, endType, linkView) {
         break;
 
     }
-    return joint.anchors.center.call(this, view, magnet, ref, {
+    return anchors.center.call(this, view, magnet, ref, {
       ...opt,
       dx,
       dy
@@ -849,7 +849,7 @@ async function populateConfigFromBackend(circuit_dict, file_name = null) {
 }
 
 const graph = new dia.Graph({}, { cellNamespace });
-const paper = new joint.dia.Paper({
+const paper = new dia.Paper({
     el: document.getElementById('atopilePaper'),
     model: graph,
     width: '100%',
@@ -865,7 +865,7 @@ const paper = new joint.dia.Paper({
     magnetThreshold: 'onleave',
     cellViewNamespace: cellNamespace,
     anchorNamespace: {
-        ...joint.anchors,
+        ...anchors,
         customAnchor
     }
 });
