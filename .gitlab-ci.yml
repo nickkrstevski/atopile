@@ -72,6 +72,8 @@ cli-test:
 cli-build:
   stage: build
   image: python:latest
+  needs:
+    - viewer-build
   script:
     - pip install build twine
     - python -m build
