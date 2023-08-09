@@ -1,7 +1,7 @@
 
 # TYPES:
-# There are 3 types:
-# block, node and signal
+# There are 4 types:
+# block, components, node and signal
 
 # RULES:
 # Blocks:
@@ -14,16 +14,14 @@
 # A block instance can be replaced by another one assuming
 # it's of the same class or a sub-class of that class
 # A block can contain information about the component that it represents
-# The variables "value", "fields", "footprint", "symbol" and "pin" are protected within a block
-# The variables "footprint", "symbol" and "pin" are considered to be
-# part of component information.
+# The variables "value" and "fields" are protected within a block
 
 # Components:
-# A component has a name
-# A component instance does not have a name and can only exist within a block
-# A component can carry information in fields
-# A component carries a pin list by default
-# The pin list can be connected to signals
+# A component class has a name
+# A component instance has a name
+# A component follows all the rules stated above for a block and adds the following:
+# the variables "footprint", "symbol" and "pin" are protected within a component.
+# A component carries a pin list that can be associated to signals
 
 # A node class has a name
 # A node instance has a name
@@ -42,15 +40,21 @@
 block ABlock:
     pass
 
+component AComponent:
+    pass
+
 node ANode:
     pass
 
 signal ASignal:
     pass
 
+
 # INSTANTIATION:
 # Instantiation can be created like so:
 a_block = new ABlock
+
+a_component = new AComponent
 
 a_node = new ANode
 
@@ -61,11 +65,19 @@ a_signal = new ASignal
 block BBlock from ABlock:
     pass
 
+component BComponent from AComponent:
+    pass
+# Components can also inherit from blocks:
+component CComponent from BBlock:
+# However, the opposite is not true. Blocks can't inherit from components.
+
 node BNode from ANode:
     pass
 
 signal BSignal from ASignal:
     pass
+
+
 
 # CLASS INSTANCE REPLACEMENT
 # A block instance can be replaced by another block instance like so:
@@ -75,18 +87,33 @@ a_block -> BBlock
 # This operation is only allowed in cases where the replacement class if of the same
 # type or from a subclass of the same class.
 
+
+
 # COMPONENT SPECIFICATION
-block VanillaResistor:
+
+# Components classes can be defined like so:
+# Start with a block
+block Resistor:
+    signal a
+    signal b
+
+# instantiate the block
+res = new Resistor
+
+# Import the block in the component
+component VanillaResistor from Resistor:
     footprint = "0603"
 
-block RandomClass:
-    value = 1
-# Component variables ("footprint", "symbol" and "pin") can be added to a block class like so:
-a_block <- VanillaResistor
-# A block can only contain information from a single component.
-# If a further addition is made, it replaces the content of the previous one.
-a_block <- RandomClass
-# a_block now contain the RandomClass information
+# Apply the component to the block instance
+res <- VanillaResistor
+
+# A component can also be directly specified
+component RP2040:
+    footprint = "RP2040"
+    signal vcc
+    signal gnd
+
+
 
 # SIGNAL TO PIN ASSOCIATION
 # There are two ways to associate footprint pins to a block.
@@ -103,7 +130,7 @@ block Diode:
 my_diode = new Diode
 
 # We then select the actual component we want to use and create the pin to signal association
-block DLLFSD01LPH47B from Diode:
+component DLLFSD01LPH47B from Diode:
     intf.anode ~ pin[1]
     intf.cathode ~ pin[2]["c"]
     # The "c" mention allows to further specifiy that the pin list element
@@ -112,7 +139,7 @@ block DLLFSD01LPH47B from Diode:
 # Fianlly, we apply the component information to the circuit
 my_diode <- DLLFSD01LPH47B
 # If we wanted to apply the same footprint to all diodes of that class, we could do so as well:
-Diode <- DLLFSD01LPH47B
+# Diode <- DLLFSD01LPH47B <- not sure we want to enable this. Using selectors might be cleaner.
 
 # This first methode is useful to keep a circuit as agnostic as possible from final
 # implementation.
@@ -123,5 +150,7 @@ block KDS114E:
     footprint = "SOD123"
     intf.sig1 ~ pin[1]
     intf.sig1 ~ pin[2]["c"]
+
+
 
 
