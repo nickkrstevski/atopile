@@ -11,7 +11,7 @@ from atopile.parser.parser import build_model
 from atopile.project.config import BuildConfig
 from atopile.project.project import Project
 from atopile.utils import timed, update_dict
-from atopile.visualizer.render import build_view
+from atopile.viewer.render import build_view
 
 yaml = ruamel.yaml.YAML()
 yaml.preserve_quotes = True

@@ -1,6 +1,6 @@
 {
   "name": "atopile_vis",
-  "source": "src/visualiser_client/static/client.html",
+  "source": "src/viewer/client.html",
   "scripts": {
     "start": "parcel serve",
     "build": "parcel build"

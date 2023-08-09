@@ -4,7 +4,7 @@
 
 import { shapes, util, dia, anchors } from 'jointjs';
 
-// Visual settings for the visualizer
+// Visual settings for the viewer
 let settings_dict = {
     common: {
         backgroundColor: 'rgba(224, 233, 227, 0.3)',

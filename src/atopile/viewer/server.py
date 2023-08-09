@@ -1,11 +1,9 @@
 import logging
-from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
-from atopile.visualizer.project_handler import ProjectHandler
+from atopile.viewer.project_handler import ProjectHandler
 from atopile.utils import get_project_root
 
 # configure logging
@@ -27,9 +25,6 @@ project_handler = ProjectHandler()
 
 # app = FastAPI(lifespan=lifespan)
 app = FastAPI()
-
-static_dir = get_project_root() / "src/visualiser_client/static"
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/api/")
@@ -61,3 +56,7 @@ async def update_config(file, updates: dict):
 #     await websocket.send_json(watcher.current_view)
 #     async for circuit in watcher.listen_for_circuits():
 #         await websocket.send_json(circuit)
+
+
+static_dir = get_project_root() / "dist"
+app.mount("/", StaticFiles(directory=static_dir), name="static")
