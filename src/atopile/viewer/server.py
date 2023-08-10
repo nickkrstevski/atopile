@@ -1,10 +1,14 @@
 import logging
 
-from fastapi import FastAPI, WebSocket  # noqa: F401 - we need WebSocket despite no comms w/ it right now
+from fastapi import (
+    FastAPI,
+    WebSocket,  # noqa: F401 - we need WebSocket despite no comms w/ it right now
+)
 from fastapi.staticfiles import StaticFiles
 
 from atopile.viewer.project_handler import ProjectHandler
-from atopile.utils import get_project_root, is_dev_install
+from atopile.utils import get_source_project_root, is_dev_install
+from pathlib import Path
 
 # configure logging
 log = logging.getLogger(__name__)
@@ -58,14 +62,12 @@ async def update_config(file, updates: dict):
 #         await websocket.send_json(circuit)
 
 
-project_root = get_project_root()
-
 # by default, use the assets in the viewer directory
-static_dir = project_root / "src/atopile/viewer/static"
+static_dir = Path(__file__).parent / "static"
 # if we're using a dev install, try use the dist directory for assets from a fresh UI build instead
 if is_dev_install():
     log.info("Detected dev install")
-    dist_dir = project_root / "dist"
+    dist_dir = get_source_project_root() / "dist"
     if dist_dir.exists():
         static_dir = dist_dir
     else:
@@ -75,4 +77,4 @@ if static_dir.exists():
     log.info("Serving static assets from %s", static_dir)
     app.mount("/", StaticFiles(directory=static_dir), name="static")
 else:
-    log.error("No static directory found, serving without static assets")
+    log.error("No static directory (%s) found, serving without static assets", static_dir)

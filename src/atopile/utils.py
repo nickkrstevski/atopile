@@ -10,12 +10,16 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-def get_project_root():
+def get_src_dir():
+    return Path(__file__).parent.parent
+
+
+def get_source_project_root():
     return Path(__file__).parent.parent.parent
 
 
 def is_dev_install():
-    return (get_project_root() / "pyproject.toml").exists()
+    return (get_source_project_root() / "pyproject.toml").exists()
 
 
 class StreamToLogger(object):
