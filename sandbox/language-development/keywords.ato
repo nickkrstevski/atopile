@@ -145,12 +145,57 @@ my_diode <- DLLFSD01LPH47B
 # implementation.
 
 # In the case where a very specific component and footprint have to be used, we can proceed like so:
-block KDS114E:
+component KDS114E:
     intf = new Interface
     footprint = "SOD123"
     intf.sig1 ~ pin[1]
     intf.sig1 ~ pin[2]["c"]
 
 
+# VARIABLES
+signal sda:
+    capacitance capacitance = unknown
+    resistance on_stiffness = unknown
+    resistance off_stiffness = unknown
+    voltage on_voltage = unknown
+    voltage off_voltage = unknown
 
 
+# REPETITION
+
+block NMOS:
+    signal gate
+    signal drain
+    signal source
+
+block ParallelNMOS(int fet_count = 3) from NMOS:
+    # this list, named "fet" of type NMOS contains a repeated element times "fet_count"
+    fet[:fet_count] = new NMOS
+    # when lists have their attributes accessed, they return a list of the same length
+    # only attributes accessible from the contextually-known type are supported
+    # eg. fet.gate is supported, fet.fet (in this case a recursive attribute) is not
+    # connections can be made to the list, which will be applied to all elements as if it were written to each
+    gate ~ fet.gate
+    drain ~ fet.drain
+    source ~ fet.source
+
+# SELECTORS
+
+block ResistorLadder(int resistor_count = 2):
+    # just because the it's a preprocessor parameter, doesn't mean you can't apply
+    # limits to it and do maths on it just like you would with other variables
+    resistor_count >= 2
+
+    signal vin
+    signal gnd
+    signal vout[resistor_count-1]
+
+    resistors[:resistor_count] = new Resistor
+
+    resistors[0].a ~ vin
+    # every second resistor, starting from the first connects to every second resistor starting from the second
+    # lists of the same length connect each element to the corresponding when connected together
+    resistors[::2].a ~ resistors[1::2].b
+    resistors[-1].b ~ gnd
+
+    resistors[:-2].b ~ vout
