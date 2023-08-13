@@ -4,12 +4,12 @@ import sys
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
 
-from atopile.model.accessors import ModelVertexView
+from atopile.model.accessors import ModelVertexView, mvvs_to_path
 from atopile.model.model import EdgeType, Model, VertexType
 from atopile.model.utils import generate_edge_uid
 from atopile.parser.AtopileLexer import AtopileLexer
@@ -17,7 +17,7 @@ from atopile.parser.AtopileParser import AtopileParser
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
 from atopile.project.config import BuildConfig
 from atopile.project.project import Project
-from atopile.utils import profile
+from atopile.utils import profile, update_dict
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -179,7 +179,10 @@ class Builder(AtopileParserVisitor):
         name = ctx.name().getText()
 
         # make sure we're defining this block from the root of the file
-        if ModelVertexView.from_path(self.model, self.current_block).vertex_type != VertexType.file:
+        if (
+            ModelVertexView.from_path(self.model, self.current_block).vertex_type
+            != VertexType.file
+        ):
             raise LanguageError(
                 f"Cannot define a block inside another block ({self.current_block}).",
                 self.current_file,
@@ -198,7 +201,9 @@ class Builder(AtopileParserVisitor):
                     ctx.start.line,
                     ctx.start.column,
                 )
-            superclass_path, data_path = self.model.find_ref(from_obj.getText(), self.current_block)
+            superclass_path, data_path = self.model.find_ref(
+                from_obj.getText(), self.current_block
+            )
             if data_path:
                 raise LanguageError(
                     "Cannot subclass data object",
@@ -210,7 +215,10 @@ class Builder(AtopileParserVisitor):
             # we've got to check that the parent is a module if we're trying to make a module
             #  if we're trying to make a component we don't care
             superclass = ModelVertexView(self.model, superclass_path)
-            if block_type == VertexType.module and superclass.vertex_type != VertexType.module:
+            if (
+                block_type == VertexType.module
+                and superclass.vertex_type != VertexType.module
+            ):
                 raise LanguageError(
                     "Specified superclass is a component, but the subclass is trying to be a module. This isn't supported",
                     self.current_file,
@@ -224,7 +232,9 @@ class Builder(AtopileParserVisitor):
             )
         else:
             # we're not subclassing anything
-            block_path = self.model.new_vertex(block_type, name, part_of=self.current_block)
+            block_path = self.model.new_vertex(
+                block_type, name, part_of=self.current_block
+            )
 
         self.model.data[block_path] = {}
 
@@ -381,7 +391,6 @@ class Builder(AtopileParserVisitor):
         if assignable.new_stmt():
             class_ref = assignable.new_stmt().name_or_attr().getText()
             class_path, _ = self.model.find_ref(class_ref, self.current_block)
-            # FIXME: this probably throws a dud error if the name is an attr
             # NOTE: we're not using the assignee here because we actually want that error until this is fixed properly
             instance_name_obj = ctx.name_or_attr().name()
             if instance_name_obj is None:
@@ -423,6 +432,90 @@ class Builder(AtopileParserVisitor):
 
     def get_string(self, ctx: AtopileParser.StringContext) -> str:
         return ctx.getText().strip("\"'")
+
+    def visitRetype_stmt(self, ctx: AtopileParser.Retype_stmtContext):
+        """
+        This statement type will replace an existing block with a new one of a subclassed type
+
+        Since there's no way to delete elements, we can be sure that the subclass is
+        a superset of the superclass (confusing linguistically, makes sense logically)
+        """
+        # we can either:
+        # 1. create an instance of the new thing and relink the connections around
+        # 2. replace the existing block's data with the new data, copy in the new
+        #     elements and replace the instance_of link
+        # 3. we could just do this as another parser layer before getting to the model
+        # in either case, we need to honor changes the user has made to the instance
+        #     data/connections over benign content (Nones?, 0? etc...) of the subclass
+
+        # first, let's get all the data out of this replacement statement and validate it
+        retype_ref = ctx.name_or_attr(0).getText()
+        new_type_ref = ctx.name_or_attr(1).getText()
+
+        try:
+            retype_path, retype_data = self.model.find_ref(retype_ref, self.current_block)
+        except KeyError as ex:
+            raise LanguageError(
+                f"Cannot retype non-existent object {retype_ref}",
+                self.current_file,
+                ctx.start.line,
+                ctx.start.column,
+            ) from ex
+
+        if retype_data:
+            raise LanguageError(
+                f"Cannot retype data object {retype_ref}. Provide a path to the object you want to retype instead.",
+                self.current_file,
+                ctx.start.line,
+                ctx.start.column,
+            )
+
+        try:
+            new_type_path, new_type_data = self.model.find_ref(new_type_ref, self.current_block)
+        except KeyError as ex:
+            raise LanguageError(
+                f"Cannot use new type of non-existant object {new_type_ref}",
+                self.current_file,
+                ctx.start.line,
+                ctx.start.column,
+            ) from ex
+
+        if new_type_data:
+            raise LanguageError(
+                f"Cannot use data object as new type {new_type_ref}. Please provide a path to the class you want to use instead.",
+                self.current_file,
+                ctx.start.line,
+                ctx.start.column,
+            )
+
+        retype_mvv = ModelVertexView.from_path(self.model, retype_path)
+        new_type_mvv = ModelVertexView.from_path(self.model, new_type_path)
+
+        # check retype is an instance of a superclass of the new type (which is a class)
+        if not retype_mvv.is_instance:
+            raise LanguageError(
+                f"Can only retype instances of things, but {retype_ref} is a class",
+                self.current_file,
+                ctx.start.line,
+                ctx.start.column,
+            )
+        if not new_type_mvv.is_class:
+            raise LanguageError(
+                f"Can only retype to a class, but {new_type_ref} is an instance",
+                self.current_file,
+                ctx.start.line,
+                ctx.start.column,
+            )
+        if retype_mvv.instance_of not in new_type_mvv.superclasses:
+            raise LanguageError(
+                f"Cannot retype {retype_ref} to {new_type_ref}. {new_type_ref} must be a subclass of {retype_mvv.instance_of.path}",
+                self.current_file,
+                ctx.start.line,
+                ctx.start.column,
+            )
+
+        # okay, now we can actually get on with the retyping
+        
 
 
 class ParallelParser(AtopileParserVisitor):
