@@ -72,10 +72,6 @@ cli-lint:
   script:
     - pip install -e ."[dev,test,docs]"
     - ruff src/atopile
-  rules:
-    - changes:
-        paths:
-          - src/atopile/*
 
 cli-test:
   stage: test
