@@ -28,6 +28,13 @@ def mvvs_to_path(mvvs: List["ModelVertexView"]) -> str:
 
     raise ValueError(f"Couldn't compute path from mvvs {[mvv.ref for mvv in mvvs]}")
 
+
+class NodeNotFoundError(Exception):
+    """
+    Does what it says on the box.
+    """
+
+
 class ModelVertexView:
     def __init__(self, model: Model, index: int) -> None:
         self.model = model
@@ -44,6 +51,10 @@ class ModelVertexView:
     @property
     def vertex_type(self) -> VertexType:
         return VertexType(self.vertex["type"])
+
+    @vertex_type.setter
+    def vertex_type(self, value: VertexType) -> VertexType:
+        self.vertex["type"] = value.name
 
     @property
     def ref(self) -> str:
@@ -99,9 +110,9 @@ class ModelVertexView:
 
     @property
     def superclasses(self) -> Iterable["ModelVertexView"]:
-        superclasses = [self.superclass]
-        while (superclass := superclasses[-1].superclass) is not None:
-            superclasses.append(superclass)
+        # what've we got here? a little social climber eh?
+        superclass = self  # little white lie
+        while superclass := superclass.superclass:
             yield superclass
 
     def i_am_an_instance_of(self, of: "ModelVertexView") -> bool:
@@ -137,7 +148,7 @@ class ModelVertexView:
         try:
             root_node = model.graph.vs.find(path_eq=path)
         except ValueError as ex:
-            raise ValueError(f"Path {path} not found in model") from ex
+            raise NodeNotFoundError(f"Path {path} not found in model") from ex
         return cls(model, root_node.index)
 
     @classmethod
