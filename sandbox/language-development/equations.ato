@@ -1,0 +1,15 @@
+# Defining equations
+
+# We need to be able to define:
+# - the equations that relate parameters to one another (== ?)
+# - limits on those equations
+#   - <, >, <=, >= are self-explanitory
+#   - != (or the concept of equals) is a special case, since it really meaans more "within a certain range" in the context of a limit
+# - tolerances of those parameters/limits
+# - physical units of the parameters/limits
+
+# I'm considering something along these lines:
+V(V) == I(A) * R(ohm)  # Ohm's law and a relational descriptor
+V > 0.5V  # A limit. Do we need to continue specifying units? I mean, limits should be in the same unit of the original equation, right?
+R = 25ohm +/- 1%  # A parameter with a tolerance
+# How do we say "I must be kept within this range to ensure that V is within its range always, including the tolerance on R"?
