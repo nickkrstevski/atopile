@@ -70,7 +70,7 @@ class Designators(Target):
         else:
             designator_file_data = {}
 
-        root_node = ModelVertexView.from_path(self.model, self.build_config.root_node)
+        root_node = ModelVertexView.from_path(self.model, self.build_config.root)
         components = root_node.get_descendants(VertexType.component)
         rel_paths = {c.index: root_node.relative_path(c) for c in components}
 

@@ -26,8 +26,8 @@ class SchematicViewTarget(Target):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # write the core schematic file
-        root_node_mvv = ModelVertexView.from_path(self.model, self.build_config.root_node)
-        sch = build_view(self.model, self.build_config.root_node)
+        root_node_mvv = ModelVertexView.from_path(self.model, self.build_config.root)
+        sch = build_view(self.model, self.build_config.root)
         sch_file = output_dir / f"{root_node_mvv.ref}.json"
         log.info("Writing schematic view to %s", str(sch_file))
         with sch_file.open("w") as f:

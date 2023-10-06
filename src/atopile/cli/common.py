@@ -21,15 +21,11 @@ def ingest_config_hat(f):
 
     @click.argument("source", required=False, default=None)
     @click.option("--build-config", default=None)
-    @click.option("--root-file", help="DEPRECATED - do not use", default=None)
-    @click.option("--root-node", help="DEPRECATED - do not use", default=None)
     @functools.wraps(f)
     def wrapper(
         *args,
         source: str,
         build_config: str,
-        root_file: str,
-        root_node: str,
         **kwargs,
     ):
         if source is None:
@@ -61,21 +57,6 @@ def ingest_config_hat(f):
 
         log.info("Using project %s", project.root)
 
-        # FIXME: remove deprecated options
-        if root_file is not None or root_node is not None:
-            log.warning("Specifying root-file or root-node via options is deprecated.")
-            log.warning("... because it was a daft idea. Matt's sorry.")
-            log.warning(
-                "Please instead specify what you are pointing to with a positional argument eg."
-            )
-            log.warning(
-                "ato ... %s/%s:%s",
-                project.root.relative_to(Path(".").resolve().absolute()),
-                root_file,
-                root_node,
-            )
-            log.warning("See `atopile view --help` for more information.")
-
         if module_path or source_path.is_file():
             root_file_path = project.standardise_import_path(source_path)
             root_node_path = str(root_file_path) + ":" + module_path
@@ -92,6 +73,7 @@ def ingest_config_hat(f):
                 raise click.BadParameter(
                     f'Could not find build-config "{build_config}".'
                 )
+
         if root_file_path is not None:
             build_config_obj = CustomBuildConfig.from_build_config(
                 base_build_config_obj
@@ -100,7 +82,7 @@ def ingest_config_hat(f):
                 (project.root / root_file_path).resolve().absolute()
             )
             if root_node_path is not None:
-                build_config_obj.root_node = root_node_path
+                build_config_obj.root = root_node_path
         else:
             if root_node_path is not None:
                 raise click.BadParameter(

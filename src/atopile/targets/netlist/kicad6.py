@@ -342,7 +342,7 @@ class Kicad6NetlistTarget(Target):
         if self._netlist is None:
             self._netlist = KicadNetlist.from_model(
                 self.model,
-                root_node=self.build_config.root_node,
+                root_node=self.build_config.root,
                 designators=self._designator_target.generate()
             )
         return self._netlist

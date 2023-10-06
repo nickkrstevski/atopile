@@ -38,7 +38,7 @@ def view(
         atopile.parser.parser.log.setLevel(logging.DEBUG)
 
     url = f"http://localhost:{port}/client.html?" + urllib.parse.urlencode(
-        {"circuit": build_config.root_node}
+        {"circuit": build_config.root}
     )
 
     # print out the URL to the console super obviously

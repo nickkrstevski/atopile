@@ -73,6 +73,18 @@ class Paths(BaseConfig):
 
         return build_dir.resolve().absolute()
 
+    @property
+    def src(self) -> Path:
+        """
+        Return the absolute path to the src directory.
+        """
+        src_dir = Path(self._config_data.get("src", self.project.root / "src"))
+
+        if not src_dir.is_absolute():
+            src_dir = self.project.root / src_dir
+
+        return src_dir.resolve().absolute()
+
 
 class BuildConfig(BaseConfig):
     @property
@@ -80,14 +92,9 @@ class BuildConfig(BaseConfig):
         return self.project.config.builds["default"]
 
     @property
-    def root_file(self) -> Path:
-        if "root-file" not in self._config_data:
-            return
-        return self.project.root / self._config_data["root-file"]
-
-    @property
-    def root_node(self) -> str:
-        return self._config_data.get("root-node", self._config_data.get("root-file"))
+    def root(self) -> str:
+        root = self._config_data.get("root")
+        return self.project.root / root
 
     @property
     def targets(self) -> List[str]:
@@ -104,12 +111,11 @@ class BuildConfig(BaseConfig):
 
 class CustomBuildConfig:
     def __init__(
-        self, name: str, project: "Project", root_file, root_node, targets
+        self, name: str, project: "Project", root, targets
     ) -> None:
         self._name = name
         self.project = project
-        self.root_file = root_file
-        self.root_node = root_node
+        self.root = root
         self.targets = targets
 
     @property
@@ -121,8 +127,7 @@ class CustomBuildConfig:
         return CustomBuildConfig(
             name=build_config.name,
             project=build_config.project,
-            root_file=build_config.root_file,
-            root_node=build_config.root_node,
+            root=build_config.root,
             targets=build_config.targets,
         )
 

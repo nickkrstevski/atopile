@@ -89,7 +89,7 @@ class PartMapTarget(Target):
         if self._components is not None:
             return self._components
 
-        root_node = ModelVertexView.from_path(self.model, self.build_config.root_node)
+        root_node = ModelVertexView.from_path(self.model, self.build_config.root)
         self._components = root_node.get_descendants(VertexType.component)
         return self._components
 

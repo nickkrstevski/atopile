@@ -28,6 +28,7 @@ def resolve_project_dir(path: Path):
 class Project:
     def __init__(self, root: Path, config_data: dict) -> None:
         self.root = root.resolve().absolute()
+        self.src_dir = self.root / self.config_data.get("src", "src")
         self._std_import_to_abs: Dict[Path, Path] = {}
 
         self.config_path = self.root / CONFIG_FILENAME
