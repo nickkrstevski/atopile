@@ -22,6 +22,14 @@ export class AtoElement extends dia.Element {
     }
 
     addPortSingle(path, name, port_group_name) {
+        let existing_ports = this.getPorts();
+        // Verify that the port hasn't been created before
+        for (let existing_port of existing_ports) {
+            if (existing_port["id"] == path) {
+                console.log("This port " + path + " has been created before.");
+                return;
+            }
+        }
         let port_anchor = getPortLabelAnchor(port_group_name);
         this.addPort(createPort(path, name, port_group_name, port_anchor));
     }
@@ -124,7 +132,6 @@ export class AtoElement extends dia.Element {
                 "left": this.getGroupPorts('left'),
                 "right": this.getGroupPorts('right')
             };
-            console.log(port_buckets);
             let ports_text_length = {
                 "top": "",
                 "bottom": "",
@@ -251,7 +258,7 @@ export class AtoBlock extends AtoElement {
     defaults() {
         return {
             ...super.defaults(),
-            type: "AtoComponent",
+            type: "AtoBlock",
             collapsed: false,
             attrs: {
                 body: {

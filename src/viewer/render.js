@@ -67,7 +67,9 @@ async function generateJointjsGraph(circuit, max_depth, current_depth = 0, path 
                 }
 
                 // Call the function recursively on children
-                if (await generateJointjsGraph(element['blocks'], max_depth, new_depth, downstream_path, joint_object, element['config']['child_attrs'])) {
+                // Use a default depth visibility of 2
+                const getValueOrDefault = element.config?.depth_visibility ?? 2;
+                if (await generateJointjsGraph(element['blocks'], getValueOrDefault, new_depth, downstream_path, joint_object, element['config']['child_attrs'])) {
                     let added_elements = addLinks(element, downstream_path, joint_object.getEmbeddedCells());
                     for (let element of added_elements) {
                         element.addTo(graph);
@@ -82,6 +84,7 @@ async function generateJointjsGraph(circuit, max_depth, current_depth = 0, path 
                         }
                     });
                 }
+
                 joint_object.resizeBasedOnContent();
                 applyParentConfig(element, child_attrs);
 
@@ -261,7 +264,6 @@ function savePositions() {
 
     graph.getCells().forEach(function(cell) {
         if (cell instanceof AtoComponent || cell instanceof AtoBlock) {
-            console.log(cell.id);
 
             let parent = cell.getParentCell();
             if (!parent) return; // skip the root element
