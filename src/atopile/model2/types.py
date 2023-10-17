@@ -1,4 +1,4 @@
-from attrs import define
+from attrs import define, field
 from pathlib import Path
 import typing
 
@@ -13,108 +13,123 @@ UNDEFINED = _Sentinel()
 
 
 class Base:
-    def __init__(self, src_path: Path, src_line: int, src_col: int):
-        self.src_path = src_path
-        self.src_line = src_line
-        self.src_col = src_col
+    src_path: Path
+    src_line: int
+    src_col: int
 
 
+@define
 class Physical(Base):
     # TODO:
     pass
 
 
+@define
 class Equation(Base):
     # TODO:
     pass
 
 
+@define
+class MapType(Base):
+    type_: "Class"
+
+
+@define
 class Map(Base):
-    def __init__(self, type_: "AttributeTypes"):
-        self.type_ = type_
-        self._map = {}
+    type_: MapType
+    _map = {}
 
 
-AttributeTypes = typing.Union[
-    _Sentinel,
-    typing.Type[Physical],
-    typing.Type[int],
-    typing.Type[float],
-    typing.Type[str],
-    typing.Type[bool],
-    typing.Type[Equation],
-    "Class",
-    "Object",
-    Map,
-]
-
-
+@define
 class Attribute(Base):
-    def __init__(
-        self, name: str, type_: AttributeTypes, value: AttributeTypes = UNDEFINED
-    ):
-        self.name = name
-        self.type = type_
-        self.value = value
+    type_: typing.Type[Physical] | typing.Type[int] | typing.Type[float] | typing.Type[
+        str
+    ] | typing.Type[bool] | typing.Type[Equation] | "Class" | MapType
+    value: typing.Union[
+        Physical, int, float, str, bool, Equation, "Object", Map
+    ] = UNDEFINED
 
 
-class Class(Base):
-    def __init__(
-        self,
-        name: str,
-        supers: list[list["Class"]] = None,
-        internal: dict[str, Attribute | Equation | "Class" | "Object"] = None,
-        anon: list[Attribute | Equation | "Class" | "Object"] = None,
-    ):
-        self.name = name
-        self.supers = supers or []
-        self.internal = internal or {}
-        self.anon = anon or []
-
-    def init(self) -> "Object":
-        return Object(self)
-
-    def subclass(self, name: str, ) -> "Class":
-        return Class(name, supers=(self.supers + [[self]]))
-
-
+@define
 class Object(Base):
-    def __init__(
-        self,
-        type_: Class,
-        internal: dict[str, Attribute] = None,
-    ):
-        self.type_ = type_
-        self.internal = internal or {}
+    type_: "Class"
+    internal: dict[str, Attribute] = field(factory=dict)
+
+    def is_instance_of(self, cls: "Class") -> bool:
+        for classes in self.type_.supers:
+            if cls in classes:
+                return True
+        return False
+
+
+
+@define
+class Class(Base):
+    name: str
+    supers: list[list["Class"]] = field(factory=list)
+    internal: dict[str, typing.Union[Attribute, Equation, "Class", "Object"]] = field(
+        factory=dict
+    )
+    anon: list[typing.Union[Attribute, Equation, "Class", "Object"]] = field(
+        factory=list
+    )
+    object_type: typing.Optional[typing.Type[Object]] = None
+
+    def get_object_type(self) -> typing.Type[Object]:
+        for supers in self.supers:
+            for super_ in supers:
+                if super_.object_type:
+                    return super_.object_type()
+
+    def make_instance(self) -> Object:
+        return self.get_object_type()(type_=self)
+
+    @classmethod
+    def make_subclass(cls_, name: str, super_: "Class") -> "Class":
+        if super_:
+            supers = [super_]
+        else:
+            supers = []
+        return cls_(name, supers=[supers, *super_.supers])
+
+    @classmethod
+    def is_subclass_of(self, cls: "Class") -> bool:
+        for supers in self.supers:
+            if self in supers:
+                return True
+        return False
 
 
 # Object Seeds
 
-
-INTERFACE = Class("Interface")
-
-
+@define
 class InterfaceObject(Object):
-    def __init__(self, *args, links: list["LinkObject"] = None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.links = links or []
+    links: list["LinkObject"] = field(factory=list)
 
 
-LINK = Class()
+INTERFACE = Class(
+    "Interface",
+    object_type=InterfaceObject,
+)
 
 
+@define
 class LinkObject(Object):
-    def __init__(self, *args, start: InterfaceObject = UNDEFINED, end: InterfaceObject = UNDEFINED, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.start = start
-        self.end = end
+    start: typing.Optional[InterfaceObject] = None
+    end: typing.Optional[InterfaceObject] = None
 
 
-BLOCK = Class()
+LINK = Class(
+    "link",
+    object_type=LinkObject,
+)
 
 
-COMPONENT = Class(supers=[BLOCK])
+BLOCK = Class("block")
 
 
-def is_instance_of(obj: Object, cls: Class) -> bool:
-    return cls in obj.type_.supers
+COMPONENT = Class("component", supers=[BLOCK])
+
+
+PIN = Class("pin", supers=[INTERFACE])

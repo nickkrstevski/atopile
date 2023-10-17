@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-class LanguageError(Exception):
+class AtoSyntaxError(Exception):
     """
     This exception is thrown when there's an error in the syntax of the language
     """
@@ -35,7 +35,7 @@ class ParserErrorListener(ErrorListener):
         self.filepath = filepath
 
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        raise LanguageError(f"Syntax error: '{msg}'", self.filepath, line, column)
+        raise AtoSyntaxError(f"Syntax error: '{msg}'", self.filepath, line, column)
 
 
 def _parse_file(file_path: Path) -> ParserRuleContext:
@@ -52,8 +52,8 @@ def _parse_file(file_path: Path) -> ParserRuleContext:
         parser.addErrorListener(error_listener)
         tree = parser.file_input()
         return tree
-    except LanguageError as ex:
-        log.error(f"Language error @ {ex.filepath}:{ex.line}:{ex.column}: {ex.message}")
+    except AtoSyntaxError as ex:
+        log.error(f"Syntax error @ {ex.filepath}:{ex.line}:{ex.column}: {ex.message}")
 
 
 def parse(
