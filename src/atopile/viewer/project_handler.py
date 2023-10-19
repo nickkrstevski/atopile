@@ -58,7 +58,7 @@ class ProjectHandler:
         if not await self.file_in_model(ato_filename):
             raise FileNotFoundError
 
-        vis_file = self.project.root / Path(filename).with_suffix(".yaml")
+        vis_file = self.project.ato_dir / "schematics" / Path(filename).with_suffix(".yaml")
 
         if vis_file.exists():
             with vis_file.open() as f:

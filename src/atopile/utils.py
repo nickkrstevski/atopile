@@ -4,7 +4,7 @@ import logging
 import pstats
 import time
 from pathlib import Path
-from typing import Callable, Optional, TypeVar
+from typing import Callable, Optional, TypeVar, Generic, Iterable, Union
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)

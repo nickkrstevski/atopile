@@ -34,6 +34,13 @@ class EdgeType(Enum):
     imported_to = "imported_to"
     subclass_of = "subclass_of"
 
+
+class VertexNotFound(ValueError):
+    """
+    Raised when a vertex is not found in the graph.
+    """
+
+
 class Model:
     def __init__(self) -> None:
         self.graph = ig.Graph(directed=True)
@@ -45,6 +52,15 @@ class Model:
         self.schema = Schema({})
 
         self.src_files: list[Path] = []
+
+    def path_to_vs(self, path: str) -> ig.Vertex:
+        """
+        Wraps igraph's find to give us less shitty errors in case we can't find something
+        """
+        try:
+            return self.graph.vs.find(path_eq=path)
+        except ValueError as ex:
+            raise VertexNotFound(f"No such path {path}") from ex
 
     def plot(self, *args, **kwargs):
         return utils.plot(self.graph, *args, **kwargs)
@@ -182,9 +198,11 @@ class Model:
         Create a new edge in the graph.
         """
         assert edge_type in EdgeType
+        source = self.path_to_vs(from_path)
+        target = self.path_to_vs(to_path)
         self.graph.add_edge(
-            self.graph.vs.find(path_eq=from_path),
-            self.graph.vs.find(path_eq=to_path),
+            source,
+            target,
             type=edge_type.name,
             uid=uid,
         )

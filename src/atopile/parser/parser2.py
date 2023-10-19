@@ -38,7 +38,7 @@ class ParserErrorListener(ErrorListener):
         raise AtoSyntaxError(f"Syntax error: '{msg}'", self.filepath, line, column)
 
 
-def _parse_file(file_path: Path) -> ParserRuleContext:
+def parse_file(file_path: Path) -> ParserRuleContext:
     try:
         error_listener = ParserErrorListener(file_path)
 
@@ -83,7 +83,7 @@ def parse(
     ):
         progress_task = progress.add_task("Parsing...", total=len(file_paths))
 
-        for path, tree in zip(file_paths, executor.map(_parse_file, file_paths)):
+        for path, tree in zip(file_paths, executor.map(parse_file, file_paths)):
             progress.update(progress_task, advance=1)
             path_to_tree[path] = tree
             log.info(f"Finished {str(path)}")

@@ -1,6 +1,7 @@
 from atopile.parser.parser2 import parse
 from pathlib import Path
-from atopile.model2.compile import compile
+from atopile.model2.compile import compile_file
+from atopile.deps import DependencySolver
 
 import logging
 from rich.logging import RichHandler

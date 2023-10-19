@@ -77,10 +77,13 @@ class Class(Base):
     object_type: typing.Optional[typing.Type[Object]] = None
 
     def get_object_type(self) -> typing.Type[Object]:
+        if self.object_type:
+            return self.object_type
         for supers in self.supers:
             for super_ in supers:
                 if super_.object_type:
-                    return super_.object_type()
+                    return super_.object_type
+        return Object
 
     def make_instance(self) -> Object:
         return self.get_object_type()(type_=self)
@@ -96,9 +99,10 @@ class Class(Base):
     @classmethod
     def is_subclass_of(self, cls: "Class") -> bool:
         for supers in self.supers:
-            if self in supers:
+            if cls in supers:
                 return True
         return False
+
 
 
 # Object Seeds
@@ -129,7 +133,7 @@ LINK = Class(
 BLOCK = Class("block")
 
 
-COMPONENT = Class("component", supers=[BLOCK])
+COMPONENT = Class("component", supers=[[BLOCK]])
 
 
-PIN = Class("pin", supers=[INTERFACE])
+PIN = Class("pin", supers=[[INTERFACE]])

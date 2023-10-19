@@ -6,6 +6,8 @@ if TYPE_CHECKING:
     # See: https://adamj.eu/tech/2021/05/13/python-type-hints-how-to-fix-circular-imports/
     from atopile.project.project import Project
 
+from atopile.project.refs import Ref
+
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
@@ -92,9 +94,8 @@ class BuildConfig(BaseConfig):
         return self.project.config.builds["default"]
 
     @property
-    def root(self) -> str:
-        root = self._config_data.get("root")
-        return self.project.root / root
+    def root(self) -> Ref:
+        return Ref.from_str(self._config_data.get("root"))
 
     @property
     def targets(self) -> List[str]:
@@ -122,6 +123,10 @@ class CustomBuildConfig:
     def name(self) -> str:
         return self._name
 
+    @property
+    def build_path(self) -> Path:
+        return self.project.config.paths.build / self.name
+
     @staticmethod
     def from_build_config(build_config: BuildConfig) -> "CustomBuildConfig":
         return CustomBuildConfig(
@@ -130,7 +135,3 @@ class CustomBuildConfig:
             root=build_config.root,
             targets=build_config.targets,
         )
-
-    @property
-    def build_path(self) -> Path:
-        return self.project.config.paths.build / self.name

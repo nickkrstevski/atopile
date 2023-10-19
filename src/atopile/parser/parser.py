@@ -11,7 +11,7 @@ from antlr4.error.ErrorListener import ErrorListener
 
 from atopile.model.accessors import ModelVertexView
 from atopile.model.differ import Delta
-from atopile.model.model import EdgeType, Model, VertexType
+from atopile.model.model import EdgeType, Model, VertexNotFound, VertexType
 from atopile.model.utils import generate_edge_uid
 from atopile.parser.AtopileLexer import AtopileLexer
 from atopile.parser.AtopileParser import AtopileParser
@@ -172,7 +172,15 @@ class Builder(AtopileParserVisitor):
                 ctx.start.column,
             )
 
-        self.model.new_edge(EdgeType.imported_to, graph_path, self.current_block)
+        try:
+            self.model.new_edge(EdgeType.imported_to, graph_path, self.current_block)
+        except VertexNotFound as ex:
+            raise LanguageError(
+                ex.args[0],
+                self.current_file,
+                ctx.start.line,
+                ctx.start.column
+            ) from ex
 
         # the super().visit() in the new file import section should
         # handle all depth required. From here, we always want to go back up
@@ -260,9 +268,17 @@ class Builder(AtopileParserVisitor):
             )
         else:
             # we're not subclassing anything
-            block_path = self.model.new_vertex(
-                block_type, name, part_of=self.current_block
-            )
+            try:
+                block_path = self.model.new_vertex(
+                    block_type, name, part_of=self.current_block
+                )
+            except VertexNotFound as ex:
+                raise LanguageError(
+                    ex.args[0],
+                    self.current_file,
+                    ctx.start.line,
+                    ctx.start.column,
+                ) from ex
 
         self.model.data[block_path] = {}
 
@@ -691,12 +707,13 @@ def build_model(project: Project, config: BuildConfig) -> Model:
 
     with profile(profile_log=log, skip=skip_profiler):
         bob = Builder(project)
-        ParallelParser.pre_parse(bob, config.root_file)
+        root_file = config.root.to.resolve().absolute()
+        ParallelParser.pre_parse(bob, root_file)
         try:
-            model = bob.build(config.root_file)
+            model = bob.build(root_file)
         except LanguageError as ex:
             log.error(
-                f"Language error @ {ex.filepath}:{ex.line}:{ex.column}: {ex.message}"
+                f"Syntax error @ {ex.filepath}:{ex.line}:{ex.column}: {ex.message}"
             )
             log.error("Stopping due to error.")
             sys.exit(1)

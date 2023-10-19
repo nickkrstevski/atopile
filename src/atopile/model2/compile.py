@@ -15,25 +15,27 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-class DependencyFinder(AtopileParserVisitor):
-    def visitImport_stmt(self, ctx: ap.Import_stmtContext):
-        return ctx.string().strip("\"'")
-
-    def aggregateResult(self, aggregate, nextResult):
-        return aggregate + [nextResult]
-
-
 class Compiler(AtopileParserVisitor):
-    def __init__(self, name: str, logger: logging.Logger) -> None:
+    def __init__(
+        self,
+        name: str,
+        built: dict[Path, types.Class],
+        finder: typing.Callable[[Path, str], Path],
+        logger: logging.Logger,
+    ) -> None:
         self.name = name
+        self.built= built
+        self.finder = finder
         self.logger = logger
-        self.deps: dict[str, types.Class] = []
         self._scope_stack: list[Scope] = []
         super().__init__()
 
     @contextmanager
-    def new_scope(self, current: types.Class | types.Object):
-        yield Scope(current, self._scope_stack[-1] if self._scope_stack else None)
+    def new_scope(self, new: types.Class | types.Object):
+        scope = Scope(new, self._scope_stack[-1] if self._scope_stack else None)
+        self._scope_stack.append(scope)
+        yield scope
+        self._scope_stack.pop()
 
     @property
     def scope(self) -> Scope:
@@ -67,7 +69,7 @@ class Compiler(AtopileParserVisitor):
         return ctx.getText()
 
     def visitAttr(self, ctx: ap.AttrContext) -> tuple[str]:
-        return tuple(ctx.name())
+        return tuple(self.visitName(name) for name in ctx.name())
 
     def visitName_or_attr(self, ctx: ap.Name_or_attrContext) -> tuple[Scope, str]:
         if ctx.name():
@@ -182,7 +184,7 @@ class Compiler(AtopileParserVisitor):
 
         if not isinstance(connectable, types.InterfaceObject):
             raise errors.AtoTypeError(
-                f"Cannot connect to '{name}' because it is not an interface"
+                f"Cannot connect to '{ctx.getText()}' because it is not an interface"
             )
 
         return connectable
@@ -223,7 +225,9 @@ class Compiler(AtopileParserVisitor):
     def visitBoolean_(self, ctx: ap.Boolean_Context) -> bool:
         return ctx.getText().lower() == "true"
 
-    def visitAssignable(self, ctx: ap.AssignableContext) -> types.Object | types.Class | types.Attribute | int | float | str:
+    def visitAssignable(
+        self, ctx: ap.AssignableContext
+    ) -> types.Object | types.Class | types.Attribute | int | float | str:
         if ctx.name_or_attr():
             scope, name = self.visitName_or_attr(ctx.name_or_attr())
             return scope[name]
@@ -241,7 +245,9 @@ class Compiler(AtopileParserVisitor):
         if ctx.boolean_():
             return self.visitBoolean_(ctx.boolean_())
 
-    def visitAssign_stmt(self, ctx: ap.Assign_stmtContext) -> tuple[typing.Optional[str], typing.Any]:
+    def visitAssign_stmt(
+        self, ctx: ap.Assign_stmtContext
+    ) -> tuple[typing.Optional[str], typing.Any]:
         scope, name = self.visitName_or_attr(ctx.name_or_attr())
         assignable = self.visitAssignable(ctx.assignable())
 
@@ -296,6 +302,8 @@ def get_ctx_from_exception(ex: Exception) -> typing.Optional[ParserRuleContext]:
 def compile_file(
     file_path: Path,
     tree: ParserRuleContext,
+    built: dict[Path, types.Class],
+    finder: typing.Callable[[Path, str], Path],
     logger: typing.Optional[logging.Logger] = None,
 ) -> types.Class:
     """
@@ -306,7 +314,12 @@ def compile_file(
         logger = log
 
     try:
-        return Compiler(file_path, logger=logger).visit(tree)
+        return Compiler(
+            file_path,
+            built=built,
+            finder=finder,
+            logger=logger
+        ).visit(tree)
 
     except Exception as ex:
         if ctx := get_ctx_from_exception(ex):

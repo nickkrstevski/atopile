@@ -7,6 +7,7 @@ import click
 
 from atopile.project.config import BuildConfig, CustomBuildConfig
 from atopile.project.project import Project
+from atopile.project.refs import Ref
 from atopile.version import check_project_version
 
 log = logging.getLogger(__name__)
@@ -28,31 +29,16 @@ def ingest_config_hat(f):
         build_config: str,
         **kwargs,
     ):
-        if source is None:
-            source_path = Path.cwd()
-            module_path = None
+        if source:
+            root = Ref.from_str(source)
         else:
-            split_source = source.split(":")
-            if len(split_source) == 2:
-                raw_source_path, module_path = split_source
-            elif len(split_source) == 1:
-                raw_source_path = split_source[0]
-                module_path = None
-            else:
-                raise click.BadParameter(
-                    f"Could not parse source path {source}. Expected format is `path/to/source.ato:module/path`."
-                )
-
-            source_path = Path(raw_source_path)
-
-            if not source_path.exists():
-                raise click.BadParameter(f"Path not found {str(source_path)}.")
+            root = Ref(Path.cwd())
 
         try:
-            project: Project = Project.from_path(source_path)
+            project: Project = Project.from_path(root.to)
         except FileNotFoundError as ex:
             raise click.BadParameter(
-                f"Could not find project from path {str(source_path)}. Is this file path within a project?"
+                f"Could not find project from path {str(root.to)}. Is this file path within a project?"
             ) from ex
 
         log.info("Using project %s", project.root)
@@ -78,7 +64,7 @@ def ingest_config_hat(f):
             build_config_obj = CustomBuildConfig.from_build_config(
                 base_build_config_obj
             )
-            build_config_obj.root_file = (
+            build_config_obj.root = (
                 (project.root / root_file_path).resolve().absolute()
             )
             if root_node_path is not None:

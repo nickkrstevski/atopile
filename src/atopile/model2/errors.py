@@ -4,7 +4,7 @@ class AtoCompileError(Exception):
     """
 
     def __init__(self, message: str, *args: object) -> None:
-        super().__init__(*args)
+        super().__init__(message, *args)
         self.message = message
 
     @property
@@ -12,7 +12,7 @@ class AtoCompileError(Exception):
         return self.__class__.__name__[3:]
 
 
-class AtoKeyError(AtoCompileError):
+class AtoKeyError(AtoCompileError, KeyError):
     """
     Raised if a name isn't found in the current scope.
     """
@@ -25,6 +25,18 @@ class AtoTypeError(AtoCompileError):
 
 
 class AtoNameConflictError(AtoCompileError):
+    """
+    Raised if something has a conflicting name in the same scope.
+    """
+
+
+class AtoCircularDependencyError(AtoCompileError):
+    """
+    Raised if something has a conflicting name in the same scope.
+    """
+
+
+class AtoImportNotFoundError(AtoCompileError):
     """
     Raised if something has a conflicting name in the same scope.
     """

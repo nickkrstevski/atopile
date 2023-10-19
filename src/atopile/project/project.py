@@ -28,15 +28,18 @@ def resolve_project_dir(path: Path):
 class Project:
     def __init__(self, root: Path, config_data: dict) -> None:
         self.root = root.resolve().absolute()
-        self.src_dir = self.root / self.config_data.get("src", "src")
-        self._std_import_to_abs: Dict[Path, Path] = {}
-
         self.config_path = self.root / CONFIG_FILENAME
         self.config_data = config_data or {}
         self.config = Config(self.config_data, self)
 
+        self._std_import_to_abs: Dict[Path, Path] = {}
+
         self.ato_dir = self.root / ATO_DIR_NAME
         self.module_dir = self.ato_dir / MODULE_DIR_NAME
+
+    @property
+    def src_dir(self) -> Path:
+        return self.root / self.config_data.get("paths", {}).get("src")
 
     @classmethod
     def from_path(cls, path: Path) -> "Project":
@@ -59,20 +62,29 @@ class Project:
         return get_src_dir() / "standard_library"
 
     def get_import_search_paths(self, cwp: Optional[Path] = None):
-        if cwp is None:
-            search_paths = [self.module_dir]
+        search_paths = []
+
+        # first search the current directory
+        if cwp.is_dir():
+            search_paths = [cwp]
         else:
-            if cwp.is_dir():
-                search_paths = [cwp, self.module_dir]
-            else:
-                search_paths = [cwp.parent, self.module_dir]
+            search_paths = [cwp.parent]
+
+        # then the src dir
+        search_paths += [self.src_dir]
+
+        # then the module dir
+        search_paths += [self.module_dir]
+
+        # finally the std lib
         search_paths += [self.get_std_lib_path()]
+
         return search_paths
 
     def standardise_import_path(self, path: Path) -> Path:
         abs_path = path.resolve().absolute()
-        if abs_path.is_relative_to(self.root):
-            std_path = abs_path.relative_to(self.root)
+        if abs_path.is_relative_to(self.src_dir):
+            std_path = abs_path.relative_to(self.src_dir)
         elif abs_path.is_relative_to(self.get_std_lib_path()):
             std_path = abs_path.relative_to(self.get_std_lib_path())
         else:

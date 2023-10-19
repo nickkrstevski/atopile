@@ -28,7 +28,7 @@ class Scope:
         # FIXME: do we really want this implicit? "this"/"self" might be more appropriate
         """
 
-        scopes = self._current.internal
+        scopes = (self._current.internal,)
 
         if isinstance(self._current, types.Object):
             # the reason for the two "s"s is because it's a list of lists
@@ -38,16 +38,26 @@ class Scope:
 
         for supers in superss:
             for super_ in supers:
-                scopes += super_.internal
+                scopes += (super_.internal,)
 
         if self._parent:
-            scopes += self._parent._current.internal
+            scopes += (self._parent._current.internal,)
 
         for scope in scopes:
             if key in scope:
                 return scope[key]
 
         raise AtoKeyError(f"'{key}' not in scope")
+
+    def __contains__(self, key: str):
+        """
+        Check if a key is in the current scope
+        """
+        try:
+            self[key]
+        except AtoKeyError:
+            return False
+        return True
 
     def __setitem__(self, key: str, value) -> None:
         """
