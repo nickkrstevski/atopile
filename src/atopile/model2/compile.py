@@ -78,7 +78,21 @@ class Compiler(AtopileParserVisitor):
             scope = self.scope
             path = self.visitAttr(ctx.attr())
             for attr in path[:-1]:
-                scope = scope[attr]
+                if isinstance(scope[attr], Scope):
+                    scope = scope[attr]
+                    continue
+
+                if isinstance(scope[attr], (types.Class, types.Object)):
+                    # create custom scopes for classes and objects
+                    scope = Scope(scope[attr])
+                    continue
+
+                if isinstance(scope[attr], types.Attribute):
+                    if isinstance(scope[attr].type_, (types.Class, types.Object)):
+                        scope = Scope(scope[attr].value)
+                        continue
+
+                raise errors.AtoTypeError(f"{attr} in scope {scope} isn't an object or class")
             return scope, path[-1]
 
         raise errors.AtoCompileError("Expected a name or attribute")

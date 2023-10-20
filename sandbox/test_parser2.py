@@ -34,14 +34,18 @@ finder = PathFinder(
 asts = parse(finder.glob("**/*.ato"))
 
 #%%
-dependency_manager = DependencySolver.from_asts(
+dependency_solver = DependencySolver.from_asts(
     finder.find,
     asts
 )
 
 # %%
+file = Path("/Users/mattwildoer/Projects/atopile-workspace/servo-drive/elec/src/vdiv.ato")
+vdiv_deps = DependencySolver.from_dm_and_path(dependency_solver, file)
+
+#%%
 built = {}
-for file in dependency_manager.build_order():
-    built[file] = compile_file(file, asts[file], built, finder.find)
+for p in vdiv_deps.build_order():
+    built[p] = compile_file(p, asts[p], built, finder.find)
 
 # %%

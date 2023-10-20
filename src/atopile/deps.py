@@ -67,6 +67,17 @@ class DependencySolver(typing.Generic[T]):
         self.check_for_cycles()
         return self
 
+    @classmethod
+    def from_dm_and_path(cls, dm: "DependencySolver", path: T) -> "DependencySolver":
+        self = cls()
+        self._dependency_tree = {}
+        def visit(path):
+            self._dependency_tree[path] = dm._dependency_tree[path]
+            for dep in dm._dependency_tree[path]:
+                visit(dep)
+        visit(path)
+        return self
+
     def check_for_cycles(self):
         """
         Check for cycles in the dependency tree.
@@ -115,9 +126,11 @@ class DependencySolver(typing.Generic[T]):
         while len(complete) != len(self._dependency_tree):
             buildable = list(self.buildable(complete))
             if not buildable:
-                list(self.buildable(complete))
+                leftovers = set(self._dependency_tree) - complete
+                friendly_leftovers = ", ".join(map(str, leftovers))
                 raise errors.AtoCompileError(
-                    "We were unable to find a way to build all everything."
+                    "We were unable to find a way to build everything."
+                    f" {friendly_leftovers} remains un-built."
                 )
             for path in buildable:
                 yield path
