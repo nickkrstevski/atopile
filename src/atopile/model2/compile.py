@@ -24,7 +24,7 @@ class Compiler(AtopileParserVisitor):
         logger: logging.Logger,
     ) -> None:
         self.name = name
-        self.built= built
+        self.built = built
         self.finder = finder
         self.logger = logger
         self._scope_stack: list[Scope] = []

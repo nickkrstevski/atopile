@@ -1,0 +1,33 @@
+
+component Resistor:
+    pin 1
+    pin 2
+    test = 1
+
+##
+
+module AnotherVDiv:
+    pass
+
+##
+
+from "" import Resistor
+from "" import AnotherVDiv
+
+module VDiv from AnotherVDiv:
+    signal top, bottom, out
+    r_top = new Resistor
+    r_bottom = new Resistor
+    top_link = r_top.1 ~ top
+    r_top.2 ~ out
+    r_bottom.1 ~ out
+    r_bottom.2 ~ bottom
+    r_top.test = 2
+
+component Resistor2 from Resistor:
+    pin 3
+    test = 3
+
+module Test:
+    vdiv = new VDiv
+    vdiv.r_top -> Resistor2
