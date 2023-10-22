@@ -2,7 +2,7 @@
 # reimport modules on rerun with jupyter
 %load_ext autoreload
 %autoreload 2
-from atopile.parser.parser2 import parse
+from atopile.model2.parse import parse
 from atopile.deps import DependencySolver, PathFinder
 from pathlib import Path
 from atopile.model2.compile import compile_file

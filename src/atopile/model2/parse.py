@@ -12,56 +12,56 @@ from rich.progress import Progress
 from atopile.parser.AtopileLexer import AtopileLexer
 from atopile.parser.AtopileParser import AtopileParser
 from atopile.utils import profile as profile_within
+from atopile.model2.errors import AtoSyntaxError
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-class AtoSyntaxError(Exception):
-    """
-    This exception is thrown when there's an error in the syntax of the language
-    """
-
-    def __init__(self, message: str, filepath: Path, line: int, column: int) -> None:
-        super().__init__(message)
-        self.message = message
-        self.filepath = filepath
-        self.line = line
-        self.column = column
-
-
 class ParserErrorListener(ErrorListener):
     def __init__(self, filepath: Path) -> None:
         self.filepath = filepath
+        self.errors = []
 
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        raise AtoSyntaxError(f"Syntax error: '{msg}'", self.filepath, line, column)
+        self.errors.append(AtoSyntaxError(f"Syntax error: '{msg}'", self.filepath, line, column))
+
+
+def parse_text(src_path: str | Path, src_code: str) -> ParserRuleContext:
+    error_listener = ParserErrorListener(src_path)
+
+    input = InputStream(src_code)
+
+    lexer = AtopileLexer(input)
+    stream = CommonTokenStream(lexer)
+    parser = AtopileParser(stream)
+    parser.removeErrorListeners()
+    parser.addErrorListener(error_listener)
+
+    tree = parser.file_input()
+
+    if error_listener.errors:
+        raise ExceptionGroup(f"Syntax errors caused parsing of {str(src_path)} to fail", error_listener.errors)
+
+    return tree
 
 
 def parse_file(file_path: Path) -> ParserRuleContext:
-    try:
-        error_listener = ParserErrorListener(file_path)
-
-        with file_path.open("r", encoding="utf-8") as f:
-            input = InputStream(f.read())
-
-        lexer = AtopileLexer(input)
-        stream = CommonTokenStream(lexer)
-        parser = AtopileParser(stream)
-        parser.removeErrorListeners()
-        parser.addErrorListener(error_listener)
-        tree = parser.file_input()
-        return tree
-    except AtoSyntaxError as ex:
-        log.error(f"Syntax error @ {ex.filepath}:{ex.line}:{ex.column}: {ex.message}")
+    with file_path.open("r", encoding="utf-8") as f:
+        return parse_text(file_path, f.read())
 
 
 def parse(
-    file_paths: Iterable[Path], profile: bool = False,
+    file_paths: Iterable[Path],
+    profile: bool = False,
     max_workers: int = 4,
 ) -> dict[Path, ParserRuleContext]:
     """
     Parse all the files in the given paths, returning a map of their trees
+
+    FIXME: handle exceptions causing syntax errors better
+
+    FIXME: accept logger as argument
 
     FIXME: this is currently heavily GIL bound.
         Unfortunately, the simple option of using multiprocessing is not available

@@ -1,4 +1,4 @@
-from atopile.parser.parser2 import parse
+from atopile.model2.parse import parse
 from pathlib import Path
 from atopile.model2.compile import compile_file
 from atopile.deps import DependencySolver
