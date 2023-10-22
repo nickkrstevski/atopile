@@ -1,83 +1,155 @@
 """
-How compilation works:
-1. We walk the AST creating datamodel 1 (0 is considered the AST itself).
-   This datamodel is a clean and consistent representation of the code, practically as presented in the AST
-   All names are kept as references - see datamodel1.py for more details
-2. We walk datamodel 1 creating datamodel 2.
-   This is practically the same as datamodel 1, except that all references are resolved to pointers to the actual objects
-   Here we ensure that all references are valid, and that all types are correct
-3. We raster datamodel 2 into a tree representing the final names, types and values of the design
+This datamodel represents the code in a clean, simple and traversable way, but doesn't resolve names of things
+In building this datamodel, we check for name collisions, but we don't resolve them yet.
 """
 
 import logging
-import typing
-import traceback
-from contextlib import contextmanager
 import textwrap
-
-from atopile.model2 import types, errors
-from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
-from atopile.parser.AtopileParser import AtopileParser as ap
-from atopile.parser.parser2 import ParserRuleContext
-from atopile.model2.scope2 import Scope
+import traceback
+import typing
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
+
+from attrs import define, field
+
+from atopile.model2 import errors, types
+from atopile.model2.scope2 import Scope
+from atopile.parser.AtopileParser import AtopileParser as ap
+from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
+from atopile.parser.parser2 import ParserRuleContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-class Compiler(AtopileParserVisitor):
+Ref = tuple[str]
+
+
+@define
+class Link:
+    source: Ref
+    target: Ref
+
+
+@define
+class Replace:
+    original: Ref
+    replacement: Ref
+
+
+@define
+class Import:
+    what: Ref
+    from_: str
+
+
+@define
+class Object:
+    supers: list[Ref] = field(factory=tuple)
+    links: list[Link] = field(factory=list)
+    replace: list[Replace] = field(factory=list)
+    imports: list[Import] = field(factory=list)
+    locals_: dict[Any, Any] = field(factory=dict)
+
+
+MODULE = Object()
+COMPONENT = Object(supers=[MODULE])
+
+
+PIN = Object()
+SIGNAL = Object()
+INTERFACE = Object()
+
+## Usage Example
+
+file = Object(class_=MODULE, supers=[], locals_={})
+
+Resistor = Object(
+    supers=[COMPONENT],
+    locals_={
+        1: Object(class_=PIN),
+        2: Object(class_=PIN),
+        "test": 1,
+    },
+)
+
+# in this data model we make everything by reference
+vdiv_named_link = Link(source=("r_top", 1), target=("top",))
+VDiv = Object(
+    supers=[MODULE],
+    links=[
+        Link(source=("r_top", 2), target=("out",)),
+        Link(source=("r_bottom", 1), target=("out",)),
+        Link(source=("r_bottom", 2), target=("bottom",)),
+        vdiv_named_link
+    ],
+    locals_={
+        "top": Object(class_=SIGNAL),
+        "out": Object(class_=SIGNAL),
+        "bottom": Object(class_=SIGNAL),
+        "r_top": Object(class_=("Resistor",)),
+        "r_bottom": Object(class_=("Resistor",)),
+        "top_link": vdiv_named_link,
+        ("r_top", "test"): 2,
+    },
+)
+
+
+Test = Object(
+    supers=[MODULE],
+    anon=[Replace(original=("vdiv", "r_top"), replacement=("Resistor2",))],
+    locals_={
+        "vdiv": Object(class_=("VDiv",)),
+    },
+)
+
+## Builder
+
+
+class Dizzy(AtopileParserVisitor):
     def __init__(
         self,
         name: str,
-        built: dict[Path, types.Class],
-        finder: typing.Callable[[Path, str], Path],
         logger: logging.Logger,
     ) -> None:
         self.name = name
-        self.built = built
-        self.finder = finder
         self.logger = logger
-        self._scope_stack: list[Scope] = []
         super().__init__()
 
-    @contextmanager
-    def new_scope(self, new: types.Class | types.Object):
-        scope = Scope(new, self._scope_stack[-1] if self._scope_stack else None)
-        self._scope_stack.append(scope)
-        yield scope
-        self._scope_stack.pop()
-
-    @property
-    def scope(self) -> Scope:
-        return self._scope_stack[-1]
-
-    def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> types.Class:
+    def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> int:
+        text = ctx.getText()
         try:
-            return str(int(ctx.getText()))
+            return int(text)
         except ValueError:
-            raise errors.AtoCompileError("Expected an integer")
+            raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
-    def visitFile_input(self, ctx: ParserRuleContext) -> types.Class:
-        file = types.Class(name=self.name)
-        with self.new_scope(file):
-            self.visitChildren(ctx)
-            return file
+    def visitFile_input(self, ctx: ap.File_inputContext) -> types.Class:
+        return Object(
+            supers=[MODULE],
+            locals_={
+                # TODO: expand all the named things we do inside the file into locals
+            },
+        )
 
-    def visitBlocktype(self, ctx: ap.BlocktypeContext):
+    def visitBlocktype(self, ctx: ap.BlocktypeContext) -> Object:
         block_type_name = ctx.getText()
-        if block_type_name == "module":
-            default_super = types.BLOCK
-            allowed_supers = [types.BLOCK]
-        elif block_type_name == "component":
-            default_super = types.COMPONENT
-            allowed_supers = [types.COMPONENT, types.BLOCK]
-        else:
-            raise errors.AtoCompileError(f"Unknown block type '{block_type_name}'")
-        return default_super, allowed_supers
+        match block_type_name:
+            case "module":
+                return MODULE
+            case "component":
+                return COMPONENT
+            case _:
+                raise errors.AtoCompileError(f"Unknown block type '{block_type_name}'")
 
     def visitName(self, ctx: ap.NameContext) -> str:
-        return ctx.getText()
+        """
+        If this is an int, convert it to one (for pins), else return the name as a string.
+        """
+        try:
+            return int(ctx.getText())
+        except ValueError:
+            return ctx.getText()
 
     def visitAttr(self, ctx: ap.AttrContext) -> tuple[str]:
         return tuple(self.visitName(name) for name in ctx.name())
@@ -103,7 +175,9 @@ class Compiler(AtopileParserVisitor):
                         scope = Scope(scope[attr].value)
                         continue
 
-                raise errors.AtoTypeError(f"{attr} in scope {scope} isn't an object or class")
+                raise errors.AtoTypeError(
+                    f"{attr} in scope {scope} isn't an object or class"
+                )
             return scope, path[-1]
 
         raise errors.AtoCompileError("Expected a name or attribute")
@@ -315,51 +389,3 @@ class Compiler(AtopileParserVisitor):
             )
 
         obj.type_ = target
-
-
-def get_ctx_from_exception(ex: Exception) -> typing.Optional[ParserRuleContext]:
-    for tb, _ in list(traceback.walk_tb(ex.__traceback__))[::-1]:
-        if tb.f_locals.get("ctx"):
-            if isinstance(tb.f_locals.get("self"), Compiler):
-                return tb.f_locals["ctx"]
-
-
-def compile_file(
-    file_path: Path,
-    tree: ParserRuleContext,
-    built: dict[Path, types.Class],
-    finder: typing.Callable[[Path, str], Path],
-    logger: typing.Optional[logging.Logger] = None,
-) -> types.Class:
-    """
-    Compile the given tree into an atopile core representation
-    """
-
-    if logger is None:
-        logger = log
-
-    try:
-        return Compiler(
-            file_path,
-            built=built,
-            finder=finder,
-            logger=logger
-        ).visit(tree)
-
-    except Exception as ex:
-        if ctx := get_ctx_from_exception(ex):
-            if isinstance(ex, errors.AtoCompileError):
-                message = ex.user_facing_name + ": " + ex.message
-            else:
-                message = f"Unprocessed '{repr(ex)}' occurred during compilation"
-
-            logger.error(
-                textwrap.dedent(
-                    f"""
-                {file_path}:{ctx.start.line}:{ctx.start.column}:
-                {message}
-                """
-                ).strip()
-            )
-
-        raise
