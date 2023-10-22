@@ -51,13 +51,13 @@ class Object:
     locals_: dict[Ref, Any] = field(factory=dict)
 
 
-MODULE = ("module",)
+MODULE = (("module",),)
 COMPONENT = (MODULE, ("component",))
 
 
-PIN = ("pin",)
-SIGNAL = ("signal",)
-INTERFACE = ("interface",)
+PIN = (("pin",),)
+SIGNAL = (("signal",),)
+INTERFACE = (("interface",),)
 
 ## Usage Example
 
