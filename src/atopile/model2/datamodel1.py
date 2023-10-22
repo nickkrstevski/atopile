@@ -17,7 +17,7 @@ from atopile.model2 import errors, types
 from atopile.model2.scope2 import Scope
 from atopile.parser.AtopileParser import AtopileParser as ap
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
-from atopile.parser.parser2 import ParserRuleContext
+from atopile.model2.parse import ParserRuleContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -140,9 +140,9 @@ class Dizzy(AtopileParserVisitor):
             case "component":
                 return COMPONENT
             case _:
-                raise errors.AtoCompileError(f"Unknown block type '{block_type_name}'")
+                raise errors.AtoError(f"Unknown block type '{block_type_name}'")
 
-    def visitName(self, ctx: ap.NameContext) -> str:
+    def visitName(self, ctx: ap.NameContext) -> str | int:
         """
         If this is an int, convert it to one (for pins), else return the name as a string.
         """
@@ -180,7 +180,7 @@ class Dizzy(AtopileParserVisitor):
                 )
             return scope, path[-1]
 
-        raise errors.AtoCompileError("Expected a name or attribute")
+        raise errors.AtoError("Expected a name or attribute")
 
     def visitBlockdef(self, ctx: ap.BlockdefContext) -> types.Class:
         new_class_name = self.visit(ctx.name())
@@ -193,7 +193,7 @@ class Dizzy(AtopileParserVisitor):
 
         if ctx.FROM():
             if not ctx.name_or_attr():
-                raise errors.AtoCompileError(
+                raise errors.AtoError(
                     "Expected a name or attribute after 'from'"
                 )
             super_name, super_scope = self.visitName_or_attr(ctx.name_or_attr())
@@ -219,7 +219,7 @@ class Dizzy(AtopileParserVisitor):
     def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext):
         name = self.visit(ctx.totally_an_integer() or ctx.name())
         if not name:
-            raise errors.AtoCompileError("Pins must have a name")
+            raise errors.AtoError("Pins must have a name")
 
         if name in self.scope:
             raise errors.AtoNameConflictError(
@@ -234,7 +234,7 @@ class Dizzy(AtopileParserVisitor):
     def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext):
         name = self.visit(ctx.name())
         if not name:
-            raise errors.AtoCompileError("Signals must have a name")
+            raise errors.AtoError("Signals must have a name")
 
         if name in self.scope:
             raise errors.AtoNameConflictError(
@@ -251,9 +251,9 @@ class Dizzy(AtopileParserVisitor):
         scope, to_import = self.visitName_or_attr(ctx.name_or_attr())
 
         if not from_file:
-            raise errors.AtoCompileError("Expected a 'from <file-path>' after 'import'")
+            raise errors.AtoError("Expected a 'from <file-path>' after 'import'")
         if not to_import:
-            raise errors.AtoCompileError(
+            raise errors.AtoError(
                 "Expected a name or attribute to import after 'import'"
             )
 
