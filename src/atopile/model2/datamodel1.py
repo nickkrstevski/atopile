@@ -52,7 +52,7 @@ class Object:
 
 
 MODULE = Object()
-COMPONENT = Object(supers=["module"])
+COMPONENT = Object(supers=[("module",)])
 
 
 PIN = Object()
