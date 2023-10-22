@@ -51,6 +51,14 @@ class Object:
     locals_: dict[Ref, Any] = field(factory=dict)
 
 
+MODULE = ("module",)
+COMPONENT = (MODULE, ("component",))
+
+
+PIN = ("pin",)
+SIGNAL = ("signal",)
+INTERFACE = ("interface",)
+
 ## Usage Example
 
 # file = Object(class_=MODULE, supers=[], locals_={})
