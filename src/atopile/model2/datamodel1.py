@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-Ref = tuple[str]
+Ref = tuple[str | int]
 
 
 @define
@@ -48,11 +48,11 @@ class Import:
 @define
 class Object:
     supers: list[Ref] = field(factory=tuple)
-    locals_: dict[Any, Any] = field(factory=dict)
+    locals_: dict[Ref, Any] = field(factory=dict)
 
 
 MODULE = Object()
-COMPONENT = Object(supers=[MODULE])
+COMPONENT = Object(supers=["module"])
 
 
 PIN = Object()
@@ -129,11 +129,11 @@ class Dizzy(AtopileParserVisitor):
         except ValueError:
             raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
-    def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Type, Optional[str], Object]:
-        results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
+    def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Type, Optional[Ref], Object]:
+        results: list[tuple[Type, Optional[Ref], Object]] = [self.visit(c) for c in ctx.getChildren()]
         return results
 
-    def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Type, Optional[str], Object]:
+    def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Type, Optional[Ref], Object]:
         block_type_name = ctx.getText()
         match block_type_name:
             case "module":
@@ -186,7 +186,7 @@ class Dizzy(AtopileParserVisitor):
         raise errors.AtoError("Expected a name or attribute")
 
     #TODO: reimplement
-    def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Type, Optional[str], Object]:
+    def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Type, Optional[Ref], Object]:
         new_class_name = self.visit(ctx.name())
         if new_class_name in self.scope:
             raise errors.AtoNameConflictError(
@@ -221,7 +221,7 @@ class Dizzy(AtopileParserVisitor):
         return new_class
 
     #TODO: reimplement
-    def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[Type, Optional[str], Object]:
+    def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[Type, Optional[Ref], Object]:
         name = self.visit(ctx.totally_an_integer() or ctx.name())
 
         #TODO: provide context of where this error was found within the file
@@ -239,7 +239,7 @@ class Dizzy(AtopileParserVisitor):
         return (Type.OBJECT, name, created_pin)
 
     #TODO: reimplement
-    def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext) -> tuple[Type, Optional[str], Object]:
+    def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext) -> tuple[Type, Optional[Ref], Object]:
         name = self.visit(ctx.name())
 
         #TODO: provide context of where this error was found within the file
@@ -258,7 +258,7 @@ class Dizzy(AtopileParserVisitor):
         return (Type.OBJECT, name, created_signal)
 
     #TODO: reimplement
-    def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[Type, Optional[str], Object]:
+    def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[Type, Optional[Ref], Object]:
         from_file: str = self.visitString(ctx.string())
         scope, to_import = self.visitName_or_attr(ctx.name_or_attr())
 
@@ -281,7 +281,7 @@ class Dizzy(AtopileParserVisitor):
         self.scope[to_import] = scope[to_import]
 
     #TODO: reimplement
-    def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Type, Optional[str], Object]:
+    def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Type, Optional[Ref], Object]:
         if ctx.name_or_attr():
             scope, name = self.visitName_or_attr(ctx.name_or_attr())
             connectable = scope[name]
@@ -302,7 +302,7 @@ class Dizzy(AtopileParserVisitor):
         return connectable
 
     #TODO: Reimplement
-    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple[Type, Optional[str], Object]:
+    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple[Type, Optional[Ref], Object]:
         """
         Connect interfaces together
         """
@@ -317,14 +317,14 @@ class Dizzy(AtopileParserVisitor):
         return link
 
     # Tricky, not sure what to do about this guy. I guess that's a super?
-    def visitWith_stmt(self, ctx: ap.With_stmtContext) -> tuple[Type, Optional[str], Object]:
+    def visitWith_stmt(self, ctx: ap.With_stmtContext) -> tuple[Type, Optional[Ref], Object]:
         """
         FIXME: I'm not entirely sure what this is for
         Remove it soon if we don't figure it out
         """
         raise NotImplementedError
 
-    def visitNew_stmt(self, ctx: ap.New_stmtContext) -> tuple[Type, Optional[str], Object]:
+    def visitNew_stmt(self, ctx: ap.New_stmtContext) -> tuple[Type, Optional[Ref], Object]:
         scope, name_to_init = self.visit(ctx.name_or_attr())
         to_init = scope[name_to_init]
         if not isinstance(to_init, types.Class):
@@ -341,7 +341,7 @@ class Dizzy(AtopileParserVisitor):
 
     def visitAssignable(
         self, ctx: ap.AssignableContext
-    ) -> tuple[Type, Optional[str], Object] | int | float | str:
+    ) -> tuple[Type, Optional[Ref], Object] | int | float | str:
         if ctx.name_or_attr():
             scope, name = self.visitName_or_attr(ctx.name_or_attr())
             return scope[name]
@@ -361,7 +361,7 @@ class Dizzy(AtopileParserVisitor):
 
     def visitAssign_stmt(
         self, ctx: ap.Assign_stmtContext
-    ) -> tuple[Type, Optional[str], Object]:
+    ) -> tuple[Type, Optional[Ref], Object]:
         scope, name = self.visitName_or_attr(ctx.name_or_attr())
         assignable = self.visitAssignable(ctx.assignable())
 
@@ -377,7 +377,7 @@ class Dizzy(AtopileParserVisitor):
 
         scope[name] = attr
 
-    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[Type, Optional[str], Object]:
+    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[Type, Optional[Ref], Object]:
         """
         This statement type will replace an existing block with a new one of a subclassed type
 
