@@ -48,9 +48,6 @@ class Import:
 @define
 class Object:
     supers: list[Ref] = field(factory=tuple)
-    links: list[Link] = field(factory=list)
-    replace: list[Replace] = field(factory=list)
-    imports: list[Import] = field(factory=list)
     locals_: dict[Any, Any] = field(factory=dict)
 
 
@@ -64,53 +61,53 @@ INTERFACE = Object()
 
 ## Usage Example
 
-file = Object(class_=MODULE, supers=[], locals_={})
+# file = Object(class_=MODULE, supers=[], locals_={})
 
-Resistor = Object(
-    supers=[COMPONENT],
-    locals_={
-        1: Object(class_=PIN),
-        2: Object(class_=PIN),
-        "test": 1,
-    },
-)
+# Resistor = Object(
+#     supers=[COMPONENT],
+#     locals_={
+#         1: Object(class_=PIN),
+#         2: Object(class_=PIN),
+#         "test": 1,
+#     },
+# )
 
 # in this data model we make everything by reference
-vdiv_named_link = Link(source=("r_top", 1), target=("top",))
-VDiv = Object(
-    supers=[MODULE],
-    links=[
-        Link(source=("r_top", 2), target=("out",)),
-        Link(source=("r_bottom", 1), target=("out",)),
-        Link(source=("r_bottom", 2), target=("bottom",)),
-        vdiv_named_link
-    ],
-    locals_={
-        "top": Object(class_=SIGNAL),
-        "out": Object(class_=SIGNAL),
-        "bottom": Object(class_=SIGNAL),
-        "r_top": Object(class_=("Resistor",)),
-        "r_bottom": Object(class_=("Resistor",)),
-        "top_link": vdiv_named_link,
-        ("r_top", "test"): 2,
-    },
-)
+# vdiv_named_link = Link(source=("r_top", 1), target=("top",))
+# VDiv = Object(
+#     supers=[MODULE],
+#     links=[
+#         Link(source=("r_top", 2), target=("out",)),
+#         Link(source=("r_bottom", 1), target=("out",)),
+#         Link(source=("r_bottom", 2), target=("bottom",)),
+#         vdiv_named_link
+#     ],
+#     locals_={
+#         "top": Object(class_=SIGNAL),
+#         "out": Object(class_=SIGNAL),
+#         "bottom": Object(class_=SIGNAL),
+#         "r_top": Object(class_=("Resistor",)),
+#         "r_bottom": Object(class_=("Resistor",)),
+#         "top_link": vdiv_named_link,
+#         ("r_top", "test"): 2,
+#     },
+# )
 
 
-Test = Object(
-    supers=[MODULE],
-    anon=[Replace(original=("vdiv", "r_top"), replacement=("Resistor2",))],
-    locals_={
-        "vdiv": Object(class_=("VDiv",)),
-    },
-)
+# Test = Object(
+#     supers=[MODULE],
+#     anon=[Replace(original=("vdiv", "r_top"), replacement=("Resistor2",))],
+#     locals_={
+#         "vdiv": Object(class_=("VDiv",)),
+#     },
+# )
 
 ## Return struct
 
 class Type(enum.Enum):
-    Link = enum.auto()
-    Attrs = enum.auto()
-    Object = enum.auto()
+    LINK = enum.auto()
+    OBJECT = enum.auto()
+    REPLACE = enum.auto()
 
 ## Builder
 
@@ -119,10 +116,10 @@ class Dizzy(AtopileParserVisitor):
     def __init__(
         self,
         name: str,
-        logger: logging.Logger,
+        # logger: logging.Logger,
     ) -> None:
         self.name = name
-        self.logger = logger
+        # self.logger = logger
         super().__init__()
 
     def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> int:
@@ -134,12 +131,7 @@ class Dizzy(AtopileParserVisitor):
 
     def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Type, Optional[str], Object]:
         results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
-        return Object(
-            supers=[MODULE],
-            locals_={
-                # TODO: expand all the named things we do inside the file into locals
-            },
-        )
+        return results
 
     def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Type, Optional[str], Object]:
         block_type_name = ctx.getText()
@@ -166,8 +158,9 @@ class Dizzy(AtopileParserVisitor):
     # TODO: reimplement that function
     def visitName_or_attr(self, ctx: ap.Name_or_attrContext) -> tuple[str]:
         if ctx.name():
-            return self.scope, self.visitName(ctx.name())
+            return self.visitName(ctx.name())
         elif ctx.attr():
+            print("should not get here")
             scope = self.scope
             path = self.visitAttr(ctx.attr())
             for attr in path[:-1]:
@@ -243,7 +236,7 @@ class Dizzy(AtopileParserVisitor):
             supers=[PIN],
         )
 
-        return (Type.Object, name, created_pin)
+        return (Type.OBJECT, name, created_pin)
 
     #TODO: reimplement
     def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext) -> tuple[Type, Optional[str], Object]:
@@ -262,7 +255,7 @@ class Dizzy(AtopileParserVisitor):
         #     raise errors.AtoNameConflictError(
         #         f"Cannot redefine '{name}' in the same scope"
         #     )
-        return (Type.Object, name, created_signal)
+        return (Type.OBJECT, name, created_signal)
 
     #TODO: reimplement
     def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[Type, Optional[str], Object]:
@@ -411,3 +404,21 @@ class Dizzy(AtopileParserVisitor):
             )
 
         obj.type_ = target
+
+
+def compile_file(
+    tree: ParserRuleContext,
+    logger: typing.Optional[logging.Logger] = None,
+) -> types.Class:
+    """
+    Compile the given tree into an atopile core representation
+    """
+
+    if logger is None:
+        logger = log
+
+    return Dizzy(
+        'test',
+        # logger=logger
+    ).visit(tree)
+
