@@ -156,13 +156,13 @@ class Dizzy(AtopileParserVisitor):
         except ValueError:
             raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
-    def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Type, Optional[str], Object]:
+    def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Type, Optional[Ref], Object]:
         #results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
         results = [self.visitStmt(c) for c in ctx.stmt()]
         return results
 
 
-    def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Type, Optional[str], Object]:
+    def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple():
         block_type_name = ctx.getText()
         match block_type_name:
             case "module":
@@ -215,38 +215,51 @@ class Dizzy(AtopileParserVisitor):
 
     #TODO: reimplement
     def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Type, Optional[Ref], Object]:
-        new_class_name = self.visit(ctx.name())
-        if new_class_name in self.scope:
-            raise errors.AtoNameConflictError(
-                f"Cannot redefine '{new_class_name}' in the same scope"
-            )
-
-        default_super, allowed_supers = self.visitBlocktype(ctx.blocktype())
-
+        block_returns = self.visitChildren(ctx.block())
+        super_name = None
         if ctx.FROM():
             if not ctx.name_or_attr():
                 raise errors.AtoError(
                     "Expected a name or attribute after 'from'"
                 )
-            super_name, super_scope = self.visitName_or_attr(ctx.name_or_attr())
-            actual_super = super_scope[super_name]
-            if not isinstance(actual_super, types.Class):
-                raise errors.AtoTypeError(
-                    f"Can only subclass classes, which '{super_name}' is not"
-                )
-            if actual_super not in allowed_supers:
-                allowed_supers_friendly = ", ".join([s.name for s in allowed_supers])
-                raise errors.AtoTypeError(
-                    f"Can only subclass {allowed_supers_friendly}, which '{super_name}' is not"
-                )
+            super_name = self.visitName_or_attr(ctx.name_or_attr())
+            block_supers = (ctx.blocktype(), super_name)
         else:
-            actual_super = default_super
+            block_supers = (ctx.blocktype())
 
-        new_class = types.Class.make_subclass(new_class_name, actual_super)
-        with self.new_scope(new_class):
-            self.visitChildren(ctx)
+        return (self.visitBlocktype(ctx.blocktype()), self.visit(ctx.name()), Object(supers = block_supers, locals_ = block_returns))
+        # new_class_name = self.visit(ctx.name())
+        # if new_class_name in self.scope:
+        #     raise errors.AtoNameConflictError(
+        #         f"Cannot redefine '{new_class_name}' in the same scope"
+        #     )
 
-        return new_class
+        # default_super, allowed_supers = self.visitBlocktype(ctx.blocktype())
+
+        # if ctx.FROM():
+        #     if not ctx.name_or_attr():
+        #         raise errors.AtoError(
+        #             "Expected a name or attribute after 'from'"
+        #         )
+        #     super_name, super_scope = self.visitName_or_attr(ctx.name_or_attr())
+        #     actual_super = super_scope[super_name]
+        #     if not isinstance(actual_super, types.Class):
+        #         raise errors.AtoTypeError(
+        #             f"Can only subclass classes, which '{super_name}' is not"
+        #         )
+        #     if actual_super not in allowed_supers:
+        #         allowed_supers_friendly = ", ".join([s.name for s in allowed_supers])
+        #         raise errors.AtoTypeError(
+        #             f"Can only subclass {allowed_supers_friendly}, which '{super_name}' is not"
+        #         )
+        # else:
+        #     actual_super = default_super
+
+        # new_class = types.Class.make_subclass(new_class_name, actual_super)
+        # with self.new_scope(new_class):
+        #     self.visitChildren(ctx)
+
+        # return new_class
 
     #TODO: reimplement
     def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[Type, Optional[Ref], Object]:
@@ -308,40 +321,41 @@ class Dizzy(AtopileParserVisitor):
         self.scope[to_import] = scope[to_import]
 
     #TODO: reimplement
-    def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Ref, Optional[tuple[Type, Optional[Ref], Object]]]:
         if ctx.name_or_attr():
-            scope, name = self.visitName_or_attr(ctx.name_or_attr())
-            connectable = scope[name]
+            # Returns a tuple
+            return self.visitName_or_attr(ctx.name_or_attr()), None
         elif ctx.numerical_pin_ref():
-            pin_ref = self.visit(ctx.numerical_pin_ref())
-            connectable = self.scope[pin_ref]
+            return self.visit(ctx.numerical_pin_ref()), None
         elif ctx.pindef_stmt() or ctx.signaldef_stmt():
             connectable = self.visitChildren(ctx)
+            # return the object's ref and the created object itself
+            return connectable[1], connectable
+        else:
+            raise ValueError("Unexpected context in visitConnectable")
 
-        if isinstance(connectable, types.Attribute):
-            connectable = connectable.value
-
-        if not isinstance(connectable, types.InterfaceObject):
-            raise errors.AtoTypeError(
-                f"Cannot connect to '{ctx.getText()}' because it is not an interface"
-            )
-
-        return connectable
 
     #TODO: Reimplement
-    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple(tuple[Type, Optional[Ref], Object]):
         """
         Connect interfaces together
         """
-        start = self.visitConnectable(ctx.connectable(0))
-        end = self.visitConnectable(ctx.connectable(1))
-        link = types.LINK.make_instance()
-        if not isinstance(link, types.LinkObject):
-            raise errors.AtoTypeError("Unknown error")
-        link.start = start
-        link.end = end
-        self.scope.append_anon(link)
-        return link
+        source_name, source = self.visitConnectable(ctx.connectable(0))
+        target_name, target = self.visitConnectable(ctx.connectable(1))
+
+        returns = [
+            (Type.LINK, None, Link(source_name, target_name),)
+        ]
+
+        if source:
+            returns.append(source)
+
+        if target:
+            returns.append(target)
+
+        #TODO: not sure that's the cleanest way to return a tuple
+        return tuple(returns)
+
 
     # Tricky, not sure what to do about this guy. I guess that's a super?
     def visitWith_stmt(self, ctx: ap.With_stmtContext) -> tuple[Type, Optional[Ref], Object]:
