@@ -47,13 +47,12 @@ class Import:
 
 @define
 class Object:
-    supers: list[Ref] = field(factory=tuple)
+    supers: tuple[Ref] = field(factory=tuple)
     locals_: dict[Ref, Any] = field(factory=dict)
 
 
 MODULE = (("module",),)
-COMPONENT = (MODULE, ("component",))
-
+COMPONENT = MODULE + (("component",),)
 
 PIN = (("pin",),)
 SIGNAL = (("signal",),)
