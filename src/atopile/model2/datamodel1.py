@@ -112,6 +112,11 @@ class Type(enum.Enum):
 ## Builder
 
 
+class _Sentinel(enum.Enum):
+    NOTHING = enum.auto()
+NOTHING = _Sentinel.NOTHING
+
+
 class Dizzy(AtopileParserVisitor):
     def __init__(
         self,
@@ -122,6 +127,29 @@ class Dizzy(AtopileParserVisitor):
         # self.logger = logger
         super().__init__()
 
+    def defaultResult(self):
+        return NOTHING
+
+    def visitChildren(self, node):
+        results = []
+        last_result = self.defaultResult()
+
+        n = node.getChildCount()
+        for i in range(n):
+            if not self.shouldVisitNextChild(node, last_result):
+                return last_result
+
+            c = node.getChild(i)
+            last_result = c.accept(self)
+            results.append(last_result)
+
+        filtered_results = list(filter(lambda x:  x is not NOTHING, results))
+        if len(filtered_results) == 0:
+            return NOTHING
+        if len(filtered_results) == 1:
+            return filtered_results[0]
+        return filtered_results
+
     def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> int:
         text = ctx.getText()
         try:
@@ -130,8 +158,10 @@ class Dizzy(AtopileParserVisitor):
             raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
     def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Type, Optional[str], Object]:
-        results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
+        #results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
+        results = [self.visitStmt(c) for c in ctx.stmt()]
         return results
+
 
     def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Type, Optional[str], Object]:
         block_type_name = ctx.getText()
@@ -160,7 +190,6 @@ class Dizzy(AtopileParserVisitor):
         if ctx.name():
             return self.visitName(ctx.name())
         elif ctx.attr():
-            print("should not get here")
             scope = self.scope
             path = self.visitAttr(ctx.attr())
             for attr in path[:-1]:
@@ -249,7 +278,6 @@ class Dizzy(AtopileParserVisitor):
         created_signal = Object(
             supers=[SIGNAL],
         )
-
         #TODO: reimplement this error handling at the above level
         # if name in self.scope:
         #     raise errors.AtoNameConflictError(
