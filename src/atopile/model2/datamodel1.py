@@ -48,7 +48,7 @@ class Import:
 @define
 class Object:
     supers: tuple[Ref] = field(factory=tuple)
-    locals_: dict[Ref, Any] = field(factory=dict)
+    locals_: tuple[tuple[Optional[Ref], Any]] = field(factory=tuple)
 
 
 MODULE = (("module",),)
@@ -146,8 +146,8 @@ class Dizzy(AtopileParserVisitor):
         if len(filtered_results) == 0:
             return NOTHING
         if len(filtered_results) == 1:
-            return filtered_results[0]
-        return filtered_results
+            return (filtered_results[0])
+        return tuple(filtered_results)
 
     def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> int:
         text = ctx.getText()
@@ -214,20 +214,22 @@ class Dizzy(AtopileParserVisitor):
         raise errors.AtoError("Expected a name or attribute")
 
     #TODO: reimplement
-    def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Optional[Ref], Object]:
         block_returns = self.visitChildren(ctx.block())
         super_name = None
+        # if block has supers, add them in supers
         if ctx.FROM():
             if not ctx.name_or_attr():
                 raise errors.AtoError(
                     "Expected a name or attribute after 'from'"
                 )
             super_name = self.visitName_or_attr(ctx.name_or_attr())
-            block_supers = (ctx.blocktype(), super_name)
+            block_supers = (self.visitBlocktype(ctx.blocktype()), super_name)
+        # otherwise, just keep the block type as a super
         else:
-            block_supers = (ctx.blocktype())
+            block_supers = (self.visitBlocktype(ctx.blocktype()))
 
-        return (self.visitBlocktype(ctx.blocktype()), self.visit(ctx.name()), Object(supers = block_supers, locals_ = block_returns))
+        return (self.visit(ctx.name()), Object(supers = block_supers, locals_ = block_returns))
         # new_class_name = self.visit(ctx.name())
         # if new_class_name in self.scope:
         #     raise errors.AtoNameConflictError(
@@ -262,7 +264,7 @@ class Dizzy(AtopileParserVisitor):
         # return new_class
 
     #TODO: reimplement
-    def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[Optional[Ref], Object]:
         name = self.visit(ctx.totally_an_integer() or ctx.name())
 
         #TODO: provide context of where this error was found within the file
@@ -277,10 +279,10 @@ class Dizzy(AtopileParserVisitor):
             supers=[PIN],
         )
 
-        return (Type.OBJECT, name, created_pin)
+        return (name, created_pin)
 
     #TODO: reimplement
-    def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext) -> tuple[Optional[Ref], Object]:
         name = self.visit(ctx.name())
 
         #TODO: provide context of where this error was found within the file
@@ -288,17 +290,17 @@ class Dizzy(AtopileParserVisitor):
             raise errors.AtoError("Signals must have a name")
 
         created_signal = Object(
-            supers=[SIGNAL],
+            supers=(SIGNAL),
         )
         #TODO: reimplement this error handling at the above level
         # if name in self.scope:
         #     raise errors.AtoNameConflictError(
         #         f"Cannot redefine '{name}' in the same scope"
         #     )
-        return (Type.OBJECT, name, created_signal)
+        return (name, created_signal)
 
     #TODO: reimplement
-    def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[Optional[Ref], Object]:
         from_file: str = self.visitString(ctx.string())
         scope, to_import = self.visitName_or_attr(ctx.name_or_attr())
 
@@ -320,8 +322,8 @@ class Dizzy(AtopileParserVisitor):
 
         self.scope[to_import] = scope[to_import]
 
-    #TODO: reimplement
-    def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Ref, Optional[tuple[Type, Optional[Ref], Object]]]:
+    # if a signal or a pin def statement are executed during a connection, it is returned as well
+    def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Ref, Optional[tuple[Optional[Ref], Object]]]:
         if ctx.name_or_attr():
             # Returns a tuple
             return self.visitName_or_attr(ctx.name_or_attr()), None
@@ -336,7 +338,7 @@ class Dizzy(AtopileParserVisitor):
 
 
     #TODO: Reimplement
-    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple(tuple[Type, Optional[Ref], Object]):
+    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple(tuple[Optional[Ref], Object]):
         """
         Connect interfaces together
         """
@@ -358,14 +360,14 @@ class Dizzy(AtopileParserVisitor):
 
 
     # Tricky, not sure what to do about this guy. I guess that's a super?
-    def visitWith_stmt(self, ctx: ap.With_stmtContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitWith_stmt(self, ctx: ap.With_stmtContext) -> tuple[Optional[Ref], Object]:
         """
         FIXME: I'm not entirely sure what this is for
         Remove it soon if we don't figure it out
         """
         raise NotImplementedError
 
-    def visitNew_stmt(self, ctx: ap.New_stmtContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitNew_stmt(self, ctx: ap.New_stmtContext) -> tuple[Optional[Ref], Object]:
         scope, name_to_init = self.visit(ctx.name_or_attr())
         to_init = scope[name_to_init]
         if not isinstance(to_init, types.Class):
@@ -402,7 +404,7 @@ class Dizzy(AtopileParserVisitor):
 
     def visitAssign_stmt(
         self, ctx: ap.Assign_stmtContext
-    ) -> tuple[Type, Optional[Ref], Object]:
+    ) -> tuple[Optional[Ref], Object]:
         scope, name = self.visitName_or_attr(ctx.name_or_attr())
         assignable = self.visitAssignable(ctx.assignable())
 
@@ -418,7 +420,7 @@ class Dizzy(AtopileParserVisitor):
 
         scope[name] = attr
 
-    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[Optional[Ref], Object]:
         """
         This statement type will replace an existing block with a new one of a subclassed type
 
