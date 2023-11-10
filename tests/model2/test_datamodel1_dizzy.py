@@ -1,5 +1,5 @@
 from ..utils import parse
-from atopile.model2.datamodel1 import Object, Dizzy, Type, compile_file
+from atopile.model2.datamodel1 import Object, Link, Dizzy, Type, compile_file
 from atopile.model2.datamodel1 import MODULE, COMPONENT, PIN, SIGNAL, INTERFACE
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
 from atopile.model2 import errors
@@ -8,6 +8,73 @@ from antlr4.tree.Trees import Trees
 from unittest.mock import MagicMock
 import pytest
 
+# =========================
+# test individual functions
+# =========================
+
+# test Totally_an_integer
+@pytest.mark.parametrize(
+    "input",
+    [
+        "1.1",
+        "hello",
+        "False",
+        "None",
+        "True",
+        "true",
+        "false"
+    ]
+)
+def test_Totally_an_integer_errors(input):
+    mock_ctx = MagicMock()
+    getText = MagicMock()
+    getText.return_value = input
+    mock_ctx.getText = getText
+
+    with pytest.raises(errors.AtoTypeError):
+        dizzy = Dizzy("test.ato")
+        dizzy.visitTotally_an_integer(mock_ctx)
+
+
+@pytest.mark.parametrize(
+    ("input", "output"),
+    [
+        ("0", 0),
+        ("1", 1),
+        ("5", 5),
+    ]
+)
+def test_Totally_an_integer_passes(input, output):
+    mock_ctx = MagicMock()
+    getText = MagicMock()
+    getText.return_value = input
+    mock_ctx.getText = getText
+
+    dizzy = Dizzy("test.ato")
+    assert output == dizzy.visitTotally_an_integer(mock_ctx)
+
+# test visitName
+@pytest.mark.parametrize(
+    ("input", "output"),
+    [
+        ("0", 0),
+        ("1", 1),
+        ("5", 5),
+        ('hello', "hello")
+    ]
+)
+def test_visitName(input, output):
+    mock_ctx = MagicMock()
+    getText = MagicMock()
+    getText.return_value = input
+    mock_ctx.getText = getText
+
+    dizzy = Dizzy("test.ato")
+    assert output == dizzy.visitName(mock_ctx)
+
+# =============
+# test compiler
+# =============
 
 def test_visitSignaldef_stmt():
     tree = parse(
@@ -73,54 +140,23 @@ def test_visitPindef_stmt():
     assert ret == [('pin_a', Object(supers=(PIN)))]
 
 
-def test_visitConnect_stmt():
+def test_visitConnect_stmt_simple():
     tree = parse(
         """
-        module mod1:
-            pin_a ~ pin_b
+        pin_a ~ pin_b
         """
     )
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitFile_input(tree)
-    assert ret == [('pin_a', Object(supers=(PIN)))]
+    assert ret == [((None, Link(source='pin_a', target='pin_b')),)]
 
-
-@pytest.mark.parametrize(
-    "input",
-    [
-        "1.1",
-        "hello",
-        "False",
-        "None",
-        "True",
-        "true",
-        "false"
-    ]
-)
-def test_Totally_an_integer_errors(input):
-    mock_ctx = MagicMock()
-    getText = MagicMock()
-    getText.return_value = input
-    mock_ctx.getText = getText
-
-    with pytest.raises(errors.AtoTypeError):
-        dizzy = Dizzy("test.ato")
-        dizzy.visitTotally_an_integer(mock_ctx)
-
-
-@pytest.mark.parametrize(
-    ("input", "output"),
-    [
-        ("0", 0),
-        ("1", 1),
-        ("5", 5),
-    ]
-)
-def test_Totally_an_integer_passes(input, output):
-    mock_ctx = MagicMock()
-    getText = MagicMock()
-    getText.return_value = input
-    mock_ctx.getText = getText
-
+def test_visitConnect_stmt_instance():
+    tree = parse(
+        """
+        pin pin_a ~ signal sig_b
+        """
+    )
     dizzy = Dizzy("test.ato")
-    assert output == dizzy.visitTotally_an_integer(mock_ctx)
+    ret = dizzy.visitFile_input(tree)
+    assert ret == [((None, Link(source='pin_a', target='sig_b')), ('pin_a', Object(supers=(PIN))), ('sig_b', Object(supers=(SIGNAL))),)]
+

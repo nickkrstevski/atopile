@@ -317,7 +317,7 @@ class Dizzy(AtopileParserVisitor):
         elif ctx.pindef_stmt() or ctx.signaldef_stmt():
             connectable = self.visitChildren(ctx)
             # return the object's ref and the created object itself
-            return connectable[1], connectable
+            return connectable[0], connectable
         else:
             raise ValueError("Unexpected context in visitConnectable")
 
