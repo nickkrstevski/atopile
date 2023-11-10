@@ -149,6 +149,24 @@ class Dizzy(AtopileParserVisitor):
             return (filtered_results[0])
         return tuple(filtered_results)
 
+    def visitChildrenList(self, node) -> _Sentinel | list:
+        results = []
+        last_result = self.defaultResult()
+
+        n = node.getChildCount()
+        for i in range(n):
+            if not self.shouldVisitNextChild(node, last_result):
+                return last_result
+
+            c = node.getChild(i)
+            last_result = c.accept(self)
+            results.append(last_result)
+
+        filtered_results = list(filter(lambda x: x is not NOTHING, results))
+        if len(filtered_results) == 0:
+            return NOTHING
+        return filtered_results
+
     def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> int:
         text = ctx.getText()
         try:
@@ -213,7 +231,6 @@ class Dizzy(AtopileParserVisitor):
 
         raise errors.AtoError("Expected a name or attribute")
 
-    #TODO: reimplement
     def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Optional[Ref], Object]:
         block_returns = self.visitChildren(ctx.block())
         super_name = None
@@ -230,38 +247,6 @@ class Dizzy(AtopileParserVisitor):
             block_supers = (self.visitBlocktype(ctx.blocktype()))
 
         return (self.visit(ctx.name()), Object(supers = block_supers, locals_ = block_returns))
-        # new_class_name = self.visit(ctx.name())
-        # if new_class_name in self.scope:
-        #     raise errors.AtoNameConflictError(
-        #         f"Cannot redefine '{new_class_name}' in the same scope"
-        #     )
-
-        # default_super, allowed_supers = self.visitBlocktype(ctx.blocktype())
-
-        # if ctx.FROM():
-        #     if not ctx.name_or_attr():
-        #         raise errors.AtoError(
-        #             "Expected a name or attribute after 'from'"
-        #         )
-        #     super_name, super_scope = self.visitName_or_attr(ctx.name_or_attr())
-        #     actual_super = super_scope[super_name]
-        #     if not isinstance(actual_super, types.Class):
-        #         raise errors.AtoTypeError(
-        #             f"Can only subclass classes, which '{super_name}' is not"
-        #         )
-        #     if actual_super not in allowed_supers:
-        #         allowed_supers_friendly = ", ".join([s.name for s in allowed_supers])
-        #         raise errors.AtoTypeError(
-        #             f"Can only subclass {allowed_supers_friendly}, which '{super_name}' is not"
-        #         )
-        # else:
-        #     actual_super = default_super
-
-        # new_class = types.Class.make_subclass(new_class_name, actual_super)
-        # with self.new_scope(new_class):
-        #     self.visitChildren(ctx)
-
-        # return new_class
 
     #TODO: reimplement
     def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[Optional[Ref], Object]:

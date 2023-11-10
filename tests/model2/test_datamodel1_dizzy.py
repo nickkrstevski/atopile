@@ -13,7 +13,7 @@ def test_visitSignaldef_stmt():
     )
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitFile_input(tree)
-    assert ret == [('signal_a', Object(supers=[SIGNAL]))]
+    assert ret == [('signal_a', Object(supers=(SIGNAL)))]
 
 def test_visitModule1LayerDeep():
     tree = parse(
@@ -27,9 +27,9 @@ def test_visitModule1LayerDeep():
     dizzy = Dizzy("test.ato")
     results = dizzy.visitFile_input(tree)
     assert results == [
-        ('comp1', Object(supers=[COMPONENT],locals_= (
-            ('signal_a', Object(supers=[SIGNAL])),
-            ('signal_a', Object(supers=[SIGNAL])),)
+        ('comp1', Object(supers=(COMPONENT),locals_= (
+            ('signal_a', Object(supers=(SIGNAL))),
+            ('signal_a', Object(supers=(SIGNAL))),)
         ))
     ]
 
@@ -47,10 +47,10 @@ def test_visitModule2LayerDeep():
     results = dizzy.visitFile_input(tree)
     print(results)
     assert results == [
-        ('mod1'), Object(supers=(MODULE), locals_= (
+        ('mod1', Object(supers=(MODULE), locals_= (
             ('comp1', Object(supers=(COMPONENT),locals_= (
                 ('signal_a', Object(supers=(SIGNAL))),
                 ('signal_a', Object(supers=(SIGNAL))),)
             ))
-        ))
+        )))
     ]
