@@ -10,9 +10,9 @@ class AtoError(Exception):
     def __init__(
         self,
         message: str,
-        src_path: Optional[str | Path],
-        src_line: Optional[int],
-        src_col: Optional[int],
+        src_path: Optional[str | Path] = None,
+        src_line: Optional[int] = None,
+        src_col: Optional[int] = None,
         *args: object,
     ) -> None:
         super().__init__(message, *args)

@@ -261,7 +261,7 @@ class Dizzy(AtopileParserVisitor):
         #         f"Cannot redefine '{name}' in the same scope"
         #     )
         created_pin = Object(
-            supers=[PIN],
+            supers=(PIN),
         )
 
         return (name, created_pin)
@@ -331,9 +331,10 @@ class Dizzy(AtopileParserVisitor):
         target_name, target = self.visitConnectable(ctx.connectable(1))
 
         returns = [
-            (Type.LINK, None, Link(source_name, target_name),)
+            (None, Link(source_name, target_name),)
         ]
 
+        # If the connect statement is also used to instantiate an element, add it to the return tuple
         if source:
             returns.append(source)
 
