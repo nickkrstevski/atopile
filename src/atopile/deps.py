@@ -5,7 +5,7 @@ from itertools import chain
 from atopile.model2 import errors
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
 from atopile.parser.AtopileParser import AtopileParser as ap
-from atopile.parser.parser2 import ParserRuleContext
+from atopile.model2.parse import ParserRuleContext
 from pathlib import Path
 
 log = logging.getLogger(__name__)
