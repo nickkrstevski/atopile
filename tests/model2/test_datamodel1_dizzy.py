@@ -15,12 +15,31 @@ def test_visitSignaldef_stmt():
     ret = dizzy.visitFile_input(tree)
     assert ret == [('signal_a', Object(supers=[SIGNAL]))]
 
-def test_datamodel1():
+def test_visitModule1LayerDeep():
     tree = parse(
         """
         component comp1:
             signal signal_a
-            signal signal_b
+            signal signal_a
+        """
+    )
+    # print('start test')
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitFile_input(tree)
+    assert results == [
+        ('comp1', Object(supers=[COMPONENT],locals_= (
+            ('signal_a', Object(supers=[SIGNAL])),
+            ('signal_a', Object(supers=[SIGNAL])),)
+        ))
+    ]
+
+def test_visitModule2LayerDeep():
+    tree = parse(
+        """
+        module mod1:
+            component comp1:
+                signal signal_a
+                signal signal_a
         """
     )
     # print('start test')
@@ -28,11 +47,10 @@ def test_datamodel1():
     results = dizzy.visitFile_input(tree)
     print(results)
     assert results == [
-        ('comp1', Object(supers=(COMPONENT),locals_= (
-            ('signal_a', Object(supers=(SIGNAL))),
-            ('signal_b', Object(supers=(SIGNAL))),)
+        ('mod1'), Object(supers=(MODULE), locals_= (
+            ('comp1', Object(supers=(COMPONENT),locals_= (
+                ('signal_a', Object(supers=(SIGNAL))),
+                ('signal_a', Object(supers=(SIGNAL))),)
+            ))
         ))
     ]
-    # print(Trees.toStringTree(tree))
-    # print(compile_file(tree))
-    # print('hello00')
