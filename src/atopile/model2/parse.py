@@ -1,8 +1,8 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import nullcontext
+from contextlib import nullcontext, contextmanager
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
@@ -27,7 +27,8 @@ class ParserErrorListener(ErrorListener):
         self.errors.append(AtoSyntaxError(f"Syntax error: '{msg}'", self.filepath, line, column))
 
 
-def parse_text(src_path: str | Path, src_code: str) -> ParserRuleContext:
+@contextmanager
+def parser_of_text(src_path: str | Path, src_code: str) -> Iterator[AtopileParser]:
     error_listener = ParserErrorListener(src_path)
 
     input = InputStream(src_code)
@@ -38,10 +39,15 @@ def parse_text(src_path: str | Path, src_code: str) -> ParserRuleContext:
     parser.removeErrorListeners()
     parser.addErrorListener(error_listener)
 
-    tree = parser.file_input()
+    yield parser
 
     if error_listener.errors:
         raise ExceptionGroup(f"Syntax errors caused parsing of {str(src_path)} to fail", error_listener.errors)
+
+
+def parse_text(src_path: str | Path, src_code: str) -> ParserRuleContext:
+    with parser_of_text(src_path, src_code) as parser:
+        tree = parser.file_input()
 
     return tree
 
@@ -83,7 +89,7 @@ def parse(
     ):
         progress_task = progress.add_task("Parsing...", total=len(file_paths))
 
-        for path, tree in zip(file_paths, executor.map(parse_file, file_paths)):
+        for path, tree in zip(file_paths, executor.map(parse_text, file_paths)):
             progress.update(progress_task, advance=1)
             path_to_tree[path] = tree
             log.info(f"Finished {str(path)}")

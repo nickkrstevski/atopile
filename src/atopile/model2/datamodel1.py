@@ -75,12 +75,6 @@ INTERFACE = (("interface",),)
 # vdiv_named_link = Link(source=("r_top", 1), target=("top",))
 # VDiv = Object(
 #     supers=[MODULE],
-#     links=[
-#         Link(source=("r_top", 2), target=("out",)),
-#         Link(source=("r_bottom", 1), target=("out",)),
-#         Link(source=("r_bottom", 2), target=("bottom",)),
-#         vdiv_named_link
-#     ],
 #     locals_={
 #         "top": Object(class_=SIGNAL),
 #         "out": Object(class_=SIGNAL),
@@ -89,6 +83,9 @@ INTERFACE = (("interface",),)
 #         "r_bottom": Object(class_=("Resistor",)),
 #         "top_link": vdiv_named_link,
 #         ("r_top", "test"): 2,
+#         (None, Link(source=("r_top", 2), target=("out",))),
+#         (None, Link(source=("r_bottom", 1), target=("out",))),
+#         (None, Link(source=("r_bottom", 2), target=("bottom",))),
 #     },
 # )
 
@@ -205,29 +202,10 @@ class Dizzy(AtopileParserVisitor):
     # TODO: reimplement that function
     def visitName_or_attr(self, ctx: ap.Name_or_attrContext) -> tuple[str]:
         if ctx.name():
+            #TODO: I believe this should return a tuple
             return self.visitName(ctx.name())
         elif ctx.attr():
-            scope = self.scope
-            path = self.visitAttr(ctx.attr())
-            for attr in path[:-1]:
-                if isinstance(scope[attr], Scope):
-                    scope = scope[attr]
-                    continue
-
-                if isinstance(scope[attr], (types.Class, types.Object)):
-                    # create custom scopes for classes and objects
-                    scope = Scope(scope[attr])
-                    continue
-
-                if isinstance(scope[attr], types.Attribute):
-                    if isinstance(scope[attr].type_, (types.Class, types.Object)):
-                        scope = Scope(scope[attr].value)
-                        continue
-
-                raise errors.AtoTypeError(
-                    f"{attr} in scope {scope} isn't an object or class"
-                )
-            return scope, path[-1]
+            return self.visitAttr(ctx.attr())
 
         raise errors.AtoError("Expected a name or attribute")
 
@@ -284,8 +262,8 @@ class Dizzy(AtopileParserVisitor):
         #     )
         return (name, created_signal)
 
-    #TODO: reimplement
-    def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[Optional[Ref], Object]:
+    # Import statements have no ref
+    def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[None, Import]:
         from_file: str = self.visitString(ctx.string())
         scope, to_import = self.visitName_or_attr(ctx.name_or_attr())
 
@@ -322,7 +300,6 @@ class Dizzy(AtopileParserVisitor):
             raise ValueError("Unexpected context in visitConnectable")
 
 
-    #TODO: Reimplement
     def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple(tuple[Optional[Ref], Object]):
         """
         Connect interfaces together
@@ -363,7 +340,8 @@ class Dizzy(AtopileParserVisitor):
         return to_init.make_instance()
 
     def visitString(self, ctx: ap.StringContext) -> str:
-        return ctx.getText().strip("\"'")
+        #return ctx.getText().strip("\"'")
+        return ctx.getText()
 
     def visitBoolean_(self, ctx: ap.Boolean_Context) -> bool:
         return ctx.getText().lower() == "true"

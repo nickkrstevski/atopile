@@ -1,4 +1,4 @@
-from ..utils import parse
+from ..utils import parse, make_parser
 from atopile.model2.datamodel1 import Object, Link, Dizzy, Type, compile_file
 from atopile.model2.datamodel1 import MODULE, COMPONENT, PIN, SIGNAL, INTERFACE
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
@@ -72,6 +72,14 @@ def test_visitName(input, output):
     dizzy = Dizzy("test.ato")
     assert output == dizzy.visitName(mock_ctx)
 
+#TODO: check for a..b error at model 1 level
+def test_visitAttr2():
+    parser = make_parser("a.b.c")
+    ctx = parser.attr()
+
+    dizzy = Dizzy("test.ato")
+    assert ('a', 'b', 'c') == dizzy.visitAttr(ctx)
+
 # =============
 # test compiler
 # =============
@@ -85,48 +93,6 @@ def test_visitSignaldef_stmt():
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitFile_input(tree)
     assert ret == [('signal_a', Object(supers=(SIGNAL)))]
-
-
-def test_visitModule1LayerDeep():
-    tree = parse(
-        """
-        component comp1:
-            signal signal_a
-            signal signal_a
-        """
-    )
-    # print('start test')
-    dizzy = Dizzy("test.ato")
-    results = dizzy.visitFile_input(tree)
-    assert results == [
-        ('comp1', Object(supers=(COMPONENT),locals_= (
-            ('signal_a', Object(supers=(SIGNAL))),
-            ('signal_a', Object(supers=(SIGNAL))),)
-        ))
-    ]
-
-
-def test_visitModule2LayerDeep():
-    tree = parse(
-        """
-        module mod1:
-            component comp1:
-                signal signal_a
-                signal signal_a
-        """
-    )
-    # print('start test')
-    dizzy = Dizzy("test.ato")
-    results = dizzy.visitFile_input(tree)
-    print(results)
-    assert results == [
-        ('mod1', Object(supers=(MODULE), locals_= (
-            ('comp1', Object(supers=(COMPONENT),locals_= (
-                ('signal_a', Object(supers=(SIGNAL))),
-                ('signal_a', Object(supers=(SIGNAL))),)
-            ))
-        )))
-    ]
 
 
 def test_visitPindef_stmt():
@@ -160,3 +126,46 @@ def test_visitConnect_stmt_instance():
     ret = dizzy.visitFile_input(tree)
     assert ret == [((None, Link(source='pin_a', target='sig_b')), ('pin_a', Object(supers=(PIN))), ('sig_b', Object(supers=(SIGNAL))),)]
 
+def test_visitModule1LayerDeep():
+    tree = parse(
+        """
+        component comp1:
+            signal signal_a
+            signal signal_b
+            signal_a ~ signal_b
+        """
+    )
+    # print('start test')
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitFile_input(tree)
+    assert results == [
+        ('comp1', Object(supers=(COMPONENT),
+        locals_= (
+            ('signal_a', Object(supers=(SIGNAL))),
+            ('signal_b', Object(supers=(SIGNAL))),
+            ((None, Link(source='signal_a', target='signal_b')),),)
+        ))
+    ]
+
+
+def test_visitModule2LayerDeep():
+    tree = parse(
+        """
+        module mod1:
+            component comp1:
+                signal signal_a
+                signal signal_a
+        """
+    )
+    # print('start test')
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitFile_input(tree)
+    print(results)
+    assert results == [
+        ('mod1', Object(supers=(MODULE), locals_= (
+            ('comp1', Object(supers=(COMPONENT),locals_= (
+                ('signal_a', Object(supers=(SIGNAL))),
+                ('signal_a', Object(supers=(SIGNAL))),)
+            ))
+        )))
+    ]
