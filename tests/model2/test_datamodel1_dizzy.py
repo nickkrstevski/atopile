@@ -1,5 +1,5 @@
 from ..utils import parse, make_parser
-from atopile.model2.datamodel1 import Object, Link, Dizzy, Type, compile_file
+from atopile.model2.datamodel1 import Object, Link, Import, Dizzy, Type, compile_file
 from atopile.model2.datamodel1 import MODULE, COMPONENT, PIN, SIGNAL, INTERFACE
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
 from atopile.model2 import errors
@@ -73,7 +73,7 @@ def test_visitName(input, output):
     assert output == dizzy.visitName(mock_ctx)
 
 #TODO: check for a..b error at model 1 level
-def test_visitAttr2():
+def test_visitAttr():
     parser = make_parser("a.b.c")
     ctx = parser.attr()
 
@@ -125,6 +125,33 @@ def test_visitConnect_stmt_instance():
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitFile_input(tree)
     assert ret == [((None, Link(source='pin_a', target='sig_b')), ('pin_a', Object(supers=(PIN))), ('sig_b', Object(supers=(SIGNAL))),)]
+
+def test_visitImport_stmt():
+    tree = parse(
+        """
+        import Module1 from "test_import.ato"
+        """
+    )
+    dizzy = Dizzy("test.ato")
+    ret = dizzy.visitFile_input(tree)
+    assert ret == [((None, Import(what='Module1', from_='test_import.ato')))]
+
+def test_visitBlockdef():
+    parser = make_parser(
+        """
+        component comp1 from comp2:
+            signal a1
+        """
+    )
+    # print('start test')
+    ctx = parser.attr()
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitBlockdef(ctx)
+    assert results == [
+        ('comp1', Object(supers=(COMPONENT,"comp2"),
+        locals_= ()
+        ))
+    ]
 
 def test_visitModule1LayerDeep():
     tree = parse(

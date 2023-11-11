@@ -265,25 +265,20 @@ class Dizzy(AtopileParserVisitor):
     # Import statements have no ref
     def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[None, Import]:
         from_file: str = self.visitString(ctx.string())
-        scope, to_import = self.visitName_or_attr(ctx.name_or_attr())
+        imported_element = self.visitName_or_attr(ctx.name_or_attr())
 
         if not from_file:
             raise errors.AtoError("Expected a 'from <file-path>' after 'import'")
-        if not to_import:
+        if not imported_element:
             raise errors.AtoError(
                 "Expected a name or attribute to import after 'import'"
             )
 
-        if to_import == "*":
+        if imported_element == "*":
             # import everything
             raise NotImplementedError("import *")
 
-        if to_import in self.scope:
-            raise errors.AtoNameConflictError(
-                f"Cannot redefine '{to_import}' in the same scope"
-            )
-
-        self.scope[to_import] = scope[to_import]
+        return (None, Import(what = imported_element, from_ = from_file))
 
     # if a signal or a pin def statement are executed during a connection, it is returned as well
     def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Ref, Optional[tuple[Optional[Ref], Object]]]:
@@ -340,8 +335,8 @@ class Dizzy(AtopileParserVisitor):
         return to_init.make_instance()
 
     def visitString(self, ctx: ap.StringContext) -> str:
-        #return ctx.getText().strip("\"'")
-        return ctx.getText()
+        return ctx.getText().strip("\"'")
+        #return ctx.getText()
 
     def visitBoolean_(self, ctx: ap.Boolean_Context) -> bool:
         return ctx.getText().lower() == "true"
