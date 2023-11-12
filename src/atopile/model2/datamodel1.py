@@ -143,7 +143,7 @@ class Dizzy(AtopileParserVisitor):
         if len(filtered_results) == 0:
             return NOTHING
         if len(filtered_results) == 1:
-            return (filtered_results[0],)
+            return filtered_results[0]
         return tuple(filtered_results)
 
     def visitChildrenList(self, node) -> _Sentinel | list:
@@ -219,10 +219,11 @@ class Dizzy(AtopileParserVisitor):
                     "Expected a name or attribute after 'from'"
                 )
             super_name = self.visitName_or_attr(ctx.name_or_attr())
+            #TODO: check if we want to return the module/component type
             block_supers = (self.visitBlocktype(ctx.blocktype()), super_name)
         # otherwise, just keep the block type as a super
         else:
-            block_supers = (self.visitBlocktype(ctx.blocktype()))
+            block_supers = self.visitBlocktype(ctx.blocktype())
 
         return (self.visit(ctx.name()), Object(supers = block_supers, locals_ = block_returns))
 
