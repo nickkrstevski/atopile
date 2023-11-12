@@ -171,7 +171,7 @@ class Dizzy(AtopileParserVisitor):
         except ValueError:
             raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
-    def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Optional[Ref], Object]:
+    def visitFile_input(self, ctx: ap.File_inputContext) -> Object:
         #results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
         results = tuple(self.visitStmt(c) for c in ctx.stmt())
         return Object(supers=MODULE, locals_=results)
