@@ -173,8 +173,8 @@ class Dizzy(AtopileParserVisitor):
 
     def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Optional[Ref], Object]:
         #results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
-        results = [self.visitStmt(c) for c in ctx.stmt()]
-        return results
+        results = tuple(self.visitStmt(c) for c in ctx.stmt())
+        return Object(supers=MODULE, locals_=results)
 
 
     def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple():
@@ -325,7 +325,7 @@ class Dizzy(AtopileParserVisitor):
         """
         raise NotImplementedError
 
-    def visitNew_stmt(self, ctx: ap.New_stmtContext) -> tuple[Optional[Ref], Object]:
+    def visitNew_stmt(self, ctx: ap.New_stmtContext) -> tuple[Ref, Object]:
         scope, name_to_init = self.visit(ctx.name_or_attr())
         to_init = scope[name_to_init]
         if not isinstance(to_init, types.Class):

@@ -157,6 +157,14 @@ def test_visitAssign_stmt_string():
     results = dizzy.visitAssign_stmt(ctx)
     assert results == ((('foo',), ('bar',)), "baz")
 
+def test_visitNew_stmt():
+    parser = make_parser("new Bar")
+    ctx = parser.new_stmt()
+
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitNew_stmt(ctx)
+    assert results == Object(supers=(('Bar',)), locals_= ())
+
 def test_visitModule1LayerDeep():
     tree = parse(
         """
@@ -168,14 +176,14 @@ def test_visitModule1LayerDeep():
     )
     dizzy = Dizzy("test.ato")
     results = dizzy.visitFile_input(tree)
-    assert results == [
+    assert results == (None, Object(supers=(MODULE), locals_=(
         (('comp1',), Object(supers=(COMPONENT),
         locals_= (
             (('signal_a',), Object(supers=(SIGNAL))),
             (('signal_b',), Object(supers=(SIGNAL))),
             ((None, Link(source=('signal_a',), target=('signal_b',))),),)
-        ))
-    ]
+        )))
+    ))
 
 
 def test_visitModule2LayerDeep():
