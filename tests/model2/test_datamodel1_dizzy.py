@@ -124,7 +124,7 @@ def test_visitImport_stmt():
 
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitImport_stmt(ctx)
-    assert ret == ((None, Import(what=('Module1',), from_=('test_import.ato',))))
+    assert ret == ((None, Import(what=('Module1',), from_='test_import.ato')))
 
 def test_visitBlockdef():
     parser = make_parser(
@@ -141,16 +141,21 @@ def test_visitBlockdef():
         locals_= (('signal_a',), Object(supers=(SIGNAL)))
         ))
 
-def test_visitAssign_stmt():
+def test_visitAssign_stmt_value():
     parser = make_parser("foo.bar = 35")
     ctx = parser.assign_stmt()
 
     dizzy = Dizzy("test.ato")
     results = dizzy.visitAssign_stmt(ctx)
-    assert results == (
-        'comp1', Object(supers=(COMPONENT,"comp2"),
-        locals_= ('signal_a', Object(supers=(SIGNAL)))
-        ))
+    assert results == ((('foo',), ('bar',)), 35)
+
+def test_visitAssign_stmt_string():
+    parser = make_parser('foo.bar = "baz"')
+    ctx = parser.assign_stmt()
+
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitAssign_stmt(ctx)
+    assert results == ((('foo',), ('bar',)), "baz")
 
 def test_visitModule1LayerDeep():
     tree = parse(

@@ -335,8 +335,7 @@ class Dizzy(AtopileParserVisitor):
         return to_init.make_instance()
 
     def visitString(self, ctx: ap.StringContext) -> str:
-        return ctx.getText().strip("\"'"),
-        #return ctx.getText()
+        return ctx.getText().strip("\"'")
 
     def visitBoolean_(self, ctx: ap.Boolean_Context) -> bool:
         return ctx.getText().lower() == "true"
@@ -356,28 +355,16 @@ class Dizzy(AtopileParserVisitor):
             return int(value) if value.is_integer() else value
 
         if ctx.string():
-            return self.visitChildren(ctx)
+            return self.visitString(ctx)
 
         if ctx.boolean_():
             return self.visitBoolean_(ctx.boolean_())
 
-    def visitAssign_stmt(
-        self, ctx: ap.Assign_stmtContext
-    ) -> tuple[Ref, str]:
-        scope, name = self.visitName_or_attr(ctx.name_or_attr())
-        assignable = self.visitAssignable(ctx.assignable())
+    def visitAssign_stmt(self, ctx: ap.Assign_stmtContext) -> tuple[Ref, str]:
+        assigned_value_name = self.visitName_or_attr(ctx.name_or_attr())
+        assigned_value = self.visitAssignable(ctx.assignable())
 
-        match assignable:
-            case types.Object() as x:
-                attr = types.Attribute(type_=x.type_, value=x)
-            case types.Class() as x:
-                attr = types.Attribute(type_=types.Class, value=x)
-            case types.Attribute() as x:
-                attr = types.Attribute(type_=x.type_, value=x.value)
-            case int() | float() | str() as x:
-                attr = types.Attribute(type_=type(x), value=x)
-
-        scope[name] = attr
+        return (assigned_value_name, assigned_value)
 
     def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[Optional[Ref], Object]:
         """
@@ -386,10 +373,9 @@ class Dizzy(AtopileParserVisitor):
         Since there's no way to delete elements, we can be sure that the subclass is
         a superset of the superclass (confusing linguistically, makes sense logically)
         """
-        obj_scope, obj_name = self.visitName_or_attr(ctx.name_or_attr(0))
-        target_scope, target_name = self.visitName_or_attr(ctx.name_or_attr(1))
+        assigned_value_name = self.visitName_or_attr(ctx.name_or_attr(0))
+        assigned_value = self.visitName_or_attr(ctx.name_or_attr(1))
 
-        obj = obj_scope[obj_name]
         if not isinstance(obj, types.Object):
             raise errors.AtoTypeError(
                 f"Can only retype objects, which '{obj_name}' is not"
