@@ -143,7 +143,7 @@ class Dizzy(AtopileParserVisitor):
         if len(filtered_results) == 0:
             return NOTHING
         if len(filtered_results) == 1:
-            return (filtered_results[0])
+            return (filtered_results[0],)
         return tuple(filtered_results)
 
     def visitChildrenList(self, node) -> _Sentinel | list:
