@@ -57,10 +57,10 @@ def test_Totally_an_integer_passes(input, output):
 @pytest.mark.parametrize(
     ("input", "output"),
     [
-        ("0", 0),
-        ("1", 1),
-        ("5", 5),
-        ('hello', "hello")
+        ("0", (0,)),
+        ("1", (1,)),
+        ("5", (5,)),
+        ('hello', ("hello",))
     ]
 )
 def test_visitName(input, output):
@@ -78,80 +78,79 @@ def test_visitAttr():
     ctx = parser.attr()
 
     dizzy = Dizzy("test.ato")
-    assert ('a', 'b', 'c') == dizzy.visitAttr(ctx)
+    assert (('a',), ('b',), ('c',)) == dizzy.visitAttr(ctx)
 
 # =============
 # test compiler
 # =============
 
 def test_visitSignaldef_stmt():
-    tree = parse(
-        """
-        signal signal_a
-        """
-    )
+    parser = make_parser("signal signal_a")
+    ctx = parser.signaldef_stmt()
+
     dizzy = Dizzy("test.ato")
-    ret = dizzy.visitFile_input(tree)
-    assert ret == [('signal_a', Object(supers=(SIGNAL)))]
+    ret = dizzy.visitSignaldef_stmt(ctx)
+    assert ret == (('signal_a',), Object(supers=(SIGNAL)))
 
 
 def test_visitPindef_stmt():
-    tree = parse(
-        """
-        pin pin_a
-        """
-    )
+    parser = make_parser("pin pin_a")
+    ctx = parser.pindef_stmt()
+
     dizzy = Dizzy("test.ato")
-    ret = dizzy.visitFile_input(tree)
-    assert ret == [('pin_a', Object(supers=(PIN)))]
+    ret = dizzy.visitPindef_stmt(ctx)
+    assert ret == (('pin_a',), Object(supers=(PIN)))
 
 
 def test_visitConnect_stmt_simple():
-    tree = parse(
-        """
-        pin_a ~ pin_b
-        """
-    )
+    parser = make_parser("pin_a ~ pin_b")
+    ctx = parser.connect_stmt()
+
     dizzy = Dizzy("test.ato")
-    ret = dizzy.visitFile_input(tree)
-    assert ret == [((None, Link(source='pin_a', target='pin_b')),)]
+    ret = dizzy.visitConnect_stmt(ctx)
+    assert ret == ((None, Link(source=('pin_a',), target=('pin_b',))),)
 
 def test_visitConnect_stmt_instance():
-    tree = parse(
-        """
-        pin pin_a ~ signal sig_b
-        """
-    )
+    parser = make_parser("pin pin_a ~ signal sig_b")
+    ctx = parser.connect_stmt()
+
     dizzy = Dizzy("test.ato")
-    ret = dizzy.visitFile_input(tree)
-    assert ret == [((None, Link(source='pin_a', target='sig_b')), ('pin_a', Object(supers=(PIN))), ('sig_b', Object(supers=(SIGNAL))),)]
+    ret = dizzy.visitConnect_stmt(ctx)
+    assert ret == ((None, Link(source=('pin_a',), target=('sig_b',))), (('pin_a',), Object(supers=(PIN))), (('sig_b',), Object(supers=(SIGNAL))),)
 
 def test_visitImport_stmt():
-    tree = parse(
-        """
-        import Module1 from "test_import.ato"
-        """
-    )
+    parser = make_parser("import Module1 from 'test_import.ato'")
+    ctx = parser.import_stmt()
+
     dizzy = Dizzy("test.ato")
-    ret = dizzy.visitFile_input(tree)
-    assert ret == [((None, Import(what='Module1', from_='test_import.ato')))]
+    ret = dizzy.visitImport_stmt(ctx)
+    assert ret == ((None, Import(what=('Module1',), from_=('test_import.ato',))))
 
 def test_visitBlockdef():
     parser = make_parser(
-        """
-        component comp1 from comp2:
-            signal a1
+        """component comp1 from comp2:
+            signal signal_a
         """
     )
-    # print('start test')
-    ctx = parser.attr()
+    ctx = parser.compound_stmt()
+
     dizzy = Dizzy("test.ato")
-    results = dizzy.visitBlockdef(ctx)
-    assert results == [
-        ('comp1', Object(supers=(COMPONENT,"comp2"),
-        locals_= ()
+    results = dizzy.visitCompound_stmt(ctx)
+    assert results == (
+        ('comp1',), Object(supers=(COMPONENT,('comp2',)),
+        locals_= (('signal_a',), Object(supers=(SIGNAL)))
         ))
-    ]
+
+def test_visitAssign_stmt():
+    parser = make_parser("foo.bar = 35")
+    ctx = parser.assign_stmt()
+
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitAssign_stmt(ctx)
+    assert results == (
+        'comp1', Object(supers=(COMPONENT,"comp2"),
+        locals_= ('signal_a', Object(supers=(SIGNAL)))
+        ))
 
 def test_visitModule1LayerDeep():
     tree = parse(
@@ -162,15 +161,14 @@ def test_visitModule1LayerDeep():
             signal_a ~ signal_b
         """
     )
-    # print('start test')
     dizzy = Dizzy("test.ato")
     results = dizzy.visitFile_input(tree)
     assert results == [
-        ('comp1', Object(supers=(COMPONENT),
+        (('comp1',), Object(supers=(COMPONENT),
         locals_= (
-            ('signal_a', Object(supers=(SIGNAL))),
-            ('signal_b', Object(supers=(SIGNAL))),
-            ((None, Link(source='signal_a', target='signal_b')),),)
+            (('signal_a',), Object(supers=(SIGNAL))),
+            (('signal_b',), Object(supers=(SIGNAL))),
+            ((None, Link(source=('signal_a',), target=('signal_b',))),),)
         ))
     ]
 
@@ -184,15 +182,14 @@ def test_visitModule2LayerDeep():
                 signal signal_a
         """
     )
-    # print('start test')
     dizzy = Dizzy("test.ato")
     results = dizzy.visitFile_input(tree)
     print(results)
     assert results == [
-        ('mod1', Object(supers=(MODULE), locals_= (
-            ('comp1', Object(supers=(COMPONENT),locals_= (
-                ('signal_a', Object(supers=(SIGNAL))),
-                ('signal_a', Object(supers=(SIGNAL))),)
+        (('mod1',), Object(supers=(MODULE), locals_= (
+            (('comp1',), Object(supers=(COMPONENT),locals_= (
+                (('signal_a',), Object(supers=(SIGNAL))),
+                (('signal_a',), Object(supers=(SIGNAL))),)
             ))
         )))
     ]

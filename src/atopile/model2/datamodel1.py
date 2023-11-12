@@ -171,7 +171,7 @@ class Dizzy(AtopileParserVisitor):
         except ValueError:
             raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
-    def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Type, Optional[Ref], Object]:
+    def visitFile_input(self, ctx: ap.File_inputContext) -> tuple[Optional[Ref], Object]:
         #results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
         results = [self.visitStmt(c) for c in ctx.stmt()]
         return results
@@ -192,9 +192,9 @@ class Dizzy(AtopileParserVisitor):
         If this is an int, convert it to one (for pins), else return the name as a string.
         """
         try:
-            return int(ctx.getText())
+            return int(ctx.getText()),
         except ValueError:
-            return ctx.getText()
+            return ctx.getText(),
 
     def visitAttr(self, ctx: ap.AttrContext) -> tuple[str]:
         return tuple(self.visitName(name) for name in ctx.name()) # Comprehension
@@ -335,7 +335,7 @@ class Dizzy(AtopileParserVisitor):
         return to_init.make_instance()
 
     def visitString(self, ctx: ap.StringContext) -> str:
-        return ctx.getText().strip("\"'")
+        return ctx.getText().strip("\"'"),
         #return ctx.getText()
 
     def visitBoolean_(self, ctx: ap.Boolean_Context) -> bool:
@@ -363,7 +363,7 @@ class Dizzy(AtopileParserVisitor):
 
     def visitAssign_stmt(
         self, ctx: ap.Assign_stmtContext
-    ) -> tuple[Optional[Ref], Object]:
+    ) -> tuple[Ref, str]:
         scope, name = self.visitName_or_attr(ctx.name_or_attr())
         assignable = self.visitAssignable(ctx.assignable())
 
