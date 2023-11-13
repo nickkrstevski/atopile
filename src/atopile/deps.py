@@ -128,7 +128,7 @@ class DependencySolver(typing.Generic[T]):
             if not buildable:
                 leftovers = set(self._dependency_tree) - complete
                 friendly_leftovers = ", ".join(map(str, leftovers))
-                raise errors.AtoCompileError(
+                raise errors.AtoError(
                     "We were unable to find a way to build everything."
                     f" {friendly_leftovers} remains un-built."
                 )

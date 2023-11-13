@@ -1,12 +1,12 @@
 #%%
-from atopile.dev.parse import parse_file
+from atopile.dev.parse import parse_as_file
 from atopile.model2.datamodel1 import Dizzy, Object, Link, Import, Replace, MODULE, COMPONENT, PIN, SIGNAL, INTERFACE
 from rich.tree import Tree
 from rich import print
 from atopile.dev.dm1_vis import Wendy
 
 # %%
-tree = parse_file(
+tree = parse_as_file(
     """
     module mod1:
         module comp1:

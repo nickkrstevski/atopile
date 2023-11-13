@@ -1,5 +1,14 @@
+import logging
+import textwrap
+import traceback
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Type
+
+from atopile.model2 import types
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
 
 
 class AtoError(Exception):
@@ -60,3 +69,45 @@ class AtoImportNotFoundError(AtoError):
     """
     Raised if something has a conflicting name in the same scope.
     """
+
+
+def get_locals_from_exception_in_class(ex: Exception, class_: Type) -> dict:
+    for tb, _ in list(traceback.walk_tb(ex.__traceback__))[::-1]:
+        if isinstance(tb.f_locals.get("self"), class_):
+            return tb.f_locals
+    return {}
+
+
+@contextmanager
+def ato_errors_to_log(
+    file_path: Path,
+    class_: Type,
+    error_class: Type[AtoError] = AtoError,
+    logger: Optional[logging.Logger] = None,
+    reraise: bool = True,
+) -> types.Class:
+    """
+    Compile the given tree into an atopile core representation
+    """
+    if logger is None:
+        logger = log
+
+    try:
+        yield
+    except Exception as ex:
+        if ctx := get_locals_from_exception_in_class(ex, class_).get("ctx"):
+            if isinstance(ex, error_class):
+                message = ex.user_facing_name + ": " + ex.message
+            else:
+                message = f"Unprocessed '{repr(ex)}' occurred during compilation"
+
+            logger.exception(
+                textwrap.dedent(
+                    f"""
+                    {file_path}:{ctx.start.line}:{ctx.start.column}:
+                    {message}
+                    """
+                ).strip()
+            )
+        if reraise:
+            raise

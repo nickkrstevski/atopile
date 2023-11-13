@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 from atopile.model2 import types
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
-from atopile.parser.parser2 import ParserRuleContext
+from atopile.model2.parse import ParserRuleContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
