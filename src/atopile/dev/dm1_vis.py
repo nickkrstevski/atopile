@@ -2,6 +2,10 @@ from atopile.dev.parse import parse_file
 from atopile.model2.datamodel1 import Object, Link, Import, Replace, MODULE, COMPONENT, PIN, SIGNAL, INTERFACE, NOTHING
 from rich.tree import Tree
 from rich import print
+from typing import Iterable
+
+def dot(strs: Iterable[str]) -> str:
+    return ".".join(strs)
 
 class Wendy:
     def get_label(self, name, supers):
@@ -20,15 +24,15 @@ class Wendy:
             return f"❓ {name} (unknown)"
 
     def parse_link(self,name, obj, parent_tree):
-        parent_tree.add(obj.source + " 🔗 " + obj.target + " (Link)")
+        parent_tree.add(dot(obj.source) + " 🔗 " + dot(obj.target) + " (Link)")
 
     def parse_replace(self,name, obj, parent_tree):
-        parent_tree.add(obj.original + " 👈 " + obj.replacement + " (Replace)")
+        parent_tree.add(dot(obj.original) + " 👉 " + dot(obj.replacement) + " (Replace)")
 
     def parse_import(self,name, obj, parent_tree):
-        parent_tree.add(obj.what + " 📦 " + obj.from_ + " (Import)")
+        parent_tree.add(dot(obj.what) + " 📦 " + obj.from_ + " (Import)")
 
-    def visit(self, input_node, rich_tree: Tree):
+    def visit(self, ref: None | tuple[str], input_node, rich_tree: Tree):
         # Check the input node type and call the appropriate function
         if isinstance(input_node, Link):
             self.parse_link(input_node.source, input_node, rich_tree)
@@ -38,27 +42,30 @@ class Wendy:
             self.parse_import(input_node.what, input_node, rich_tree)
         # objects have locals, which can be nested, so we need to recursively call visit
         elif isinstance(input_node, Object):
+            if ref is None:
+                name = "Unknown"
+            else:
+                name = ref[0]
+            # add a label for the object
+            subtree = rich_tree.add(self.get_label(name, input_node.supers))
             if input_node.locals_ == NOTHING:
                 label = "📦 Sentinel.Nothing (Empty)"
                 rich_tree.add(label)
             else:
                 for ref, obj in input_node.locals_:
-                    name = ref[0]
-                    label = self.get_label(name, obj.supers)
-                    subtree = rich_tree.add(label)
-                    self.visit(obj, subtree)
+                    self.visit(ref, obj, subtree)
         else:
             raise TypeError(f"Unknown type {type(input_node)}")
         return rich_tree
 
     def build_tree(self, dm1_tree: Object):
-        '''
+        """
         Build a tree structure using rich.tree
         dm1_tree: Object
-        '''
+        """
         # Create a tree structure using rich.tree
-        tree = Tree("🌳 Project")
-        return self.visit(dm1_tree, tree)
+        tree = Tree("🌳 stuff")
+        return self.visit(("Project",), dm1_tree, tree)
 
     def print_tree(self, dm1_tree: Object):
         # Create a tree structure using rich.tree
@@ -70,36 +77,36 @@ class Wendy:
 # dm1 = Object(
 #         supers=MODULE,
 #         locals_=(
-#             (('comp1',), Object(
+#             (("comp1",), Object(
 #                 supers=COMPONENT,
-#                 locals_=((('comp1','comp2'), Object(
+#                 locals_=((("comp1","comp2"), Object(
 #                 supers=COMPONENT,
 #                 locals_=(
-#                     (('signal_a',), Object(
+#                     (("signal_a",), Object(
 #                         supers=SIGNAL,
 #                         locals_=()
-#                     )),(('signal_b',), Object(
+#                     )),(("signal_b",), Object(
 #                         supers=SIGNAL,
 #                         locals_=()
 #                     ))
 #                 )
 #             )),
-#                     (('signal_a',), Object(
+#                     (("signal_a",), Object(
 #                         supers=SIGNAL,
 #                         locals_=()
-#                     )),(('signal_b',), Object(
+#                     )),(("signal_b",), Object(
 #                         supers=SIGNAL,
 #                         locals_=()
 #                     ))
 #                 )
 #             )),
-#             (('comp1',), Object(
+#             (("comp1",), Object(
 #                 supers=COMPONENT,
 #                 locals_=(
-#                     (('interface1',), Object(
+#                     (("interface1",), Object(
 #                         supers=INTERFACE,
 #                         locals_=()
-#                     )),(('pin1',), Object(
+#                     )),(("pin1",), Object(
 #                         supers=PIN,
 #                         locals_=()
 #                     ))
