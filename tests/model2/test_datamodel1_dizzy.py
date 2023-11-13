@@ -136,6 +136,24 @@ def test_visit_ref_helper_name():
 # test compiler
 # =============
 
+def test_interface():
+    tree = parse_file(
+        """
+        interface interface1:
+            signal signal_a
+            signal signal_b
+        """
+    )
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitFile_input(tree)
+    assert results == Object(supers=MODULE, locals_=(
+        (('interface1',), Object(supers=INTERFACE,
+        locals_= (
+            (('signal_a',), Object(supers=SIGNAL)),
+            (('signal_b',), Object(supers=SIGNAL))
+        ))),
+    ))
+
 def test_visitSignaldef_stmt():
     parser = make_parser("signal signal_a")
     ctx = parser.signaldef_stmt()

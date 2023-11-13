@@ -177,6 +177,8 @@ class Dizzy(AtopileParserVisitor):
                 return MODULE
             case "component":
                 return COMPONENT
+            case "interface":
+                return INTERFACE
             case _:
                 raise errors.AtoError(f"Unknown block type '{block_type_name}'")
 
