@@ -11,7 +11,7 @@ import itertools
 import typing
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Iterable
 
 from attrs import define, field
 
@@ -148,20 +148,9 @@ class Dizzy(AtopileParserVisitor):
     #         return filtered_results[0]
     #     return tuple(filtered_results)
 
-    def visitChildrenTuple(self, node) -> _Sentinel | tuple:
-        results = []
-        last_result = self.defaultResult()
-
-        n = node.getChildCount()
-        for i in range(n):
-            if not self.shouldVisitNextChild(node, last_result):
-                return last_result
-
-            c = node.getChild(i)
-            last_result = c.accept(self)
-            results.append(last_result)
-
-        return tuple(itertools.chain(filter(lambda x: x is not NOTHING, results)))
+    def visit_iterable_helper(self, children: Iterable) -> tuple[tuple[Optional[Ref], Any]]:
+        results = tuple(self.visit(child) for child in children)
+        return tuple(itertools.chain(*filter(lambda x: x is not NOTHING, results)))
 
     def visitSimple_stmt(self, ctx: ap.Simple_stmtContext) -> _Sentinel | tuple:
         """
@@ -175,10 +164,20 @@ class Dizzy(AtopileParserVisitor):
                 assert len(result[0]) == 2
         return result
 
-    def visitSimple_stmts(self, ctx: ap.Simple_stmtsContext) -> _Sentinel | tuple:
-        if ctx.simple_stmt():
-            results = (self.visit(ctx_n) for ctx_n in ctx.simple_stmt())
-            return tuple(itertools.chain(filter(lambda x: x is not NOTHING, results)))
+    def visitStmt(self, ctx: ap.StmtContext) -> tuple[tuple[Optional[Ref], Any]]:
+        """
+        Ensure consistency of return type
+        """
+        if ctx.simple_stmts():
+            value = self.visitSimple_stmts(ctx.simple_stmts())
+        elif ctx.compound_stmt():
+            value = (self.visit(ctx.compound_stmt()),)
+        else:
+            raise errors.AtoError("Unexpected statement type")
+        return value
+
+    def visitSimple_stmts(self, ctx: ap.Simple_stmtsContext) -> tuple[tuple[Optional[Ref], Any]]:
+        return self.visit_iterable_helper(ctx.simple_stmt())
 
     def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> int:
         text = ctx.getText()
@@ -188,10 +187,7 @@ class Dizzy(AtopileParserVisitor):
             raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
     def visitFile_input(self, ctx: ap.File_inputContext) -> Object:
-        #TODO: change this to visitChildren?
-        # results = self.visitChildrenTuple(ctx)
-        #tuple(self.visitStmt(c) for c in ctx.stmt())
-        return Object(supers=MODULE, locals_=self.visitChildrenTuple(ctx)[0])
+        return Object(supers=MODULE, locals_=self.visit_iterable_helper(ctx.stmt()))
 
     def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Ref]:
         block_type_name = ctx.getText()
@@ -238,8 +234,18 @@ class Dizzy(AtopileParserVisitor):
 
         raise errors.AtoError("Expected a name or attribute")
 
+    def visitBlock(self, ctx) -> tuple[tuple[Optional[Ref], Any]]:
+        if(ctx.simple_stmts()):
+            return self.visitSimple_stmts(ctx.simple_stmts())
+        elif(ctx.stmt()):
+            return self.visit_iterable_helper(ctx.stmt())
+        else:
+            raise errors.AtoError("Unexpected block type")
+
     def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Optional[Ref], Object]:
-        block_returns = self.visitChildren(ctx.block())
+        block_returns = self.visitBlock(ctx.block())
+        # blockdef: blocktype name ('from' name_or_attr)? ':' block;
+        # block: block: simple_stmts | NEWLINE INDENT stmt+ DEDENT;
 
         if ctx.FROM():
             if not ctx.name_or_attr():
@@ -367,7 +373,7 @@ class Dizzy(AtopileParserVisitor):
 
     def visitAssignable(
         self, ctx: ap.AssignableContext
-    ) -> tuple[Type, Optional[Ref], Object] | int | float | str:
+    ) -> tuple[Optional[Ref], Object] | int | float | str:
         if ctx.name_or_attr():
             scope, name = self.visitName_or_attr(ctx.name_or_attr())
             return scope[name]
@@ -391,34 +397,16 @@ class Dizzy(AtopileParserVisitor):
 
         return ((assigned_value_name, assigned_value),)
 
-    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[tuple[Optional[Ref], Object]]:
+    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[tuple[Optional[Ref], Replace]]:
         """
         This statement type will replace an existing block with a new one of a subclassed type
 
         Since there's no way to delete elements, we can be sure that the subclass is
         a superset of the superclass (confusing linguistically, makes sense logically)
         """
-        # assigned_value_name = self.visitName_or_attr(ctx.name_or_attr(0))
-        # assigned_value = self.visitName_or_attr(ctx.name_or_attr(1))
-
-        # if not isinstance(obj, types.Object):
-        #     raise errors.AtoTypeError(
-        #         f"Can only retype objects, which '{obj_name}' is not"
-        #     )
-
-        # target = target_scope[target_name]
-        # if not isinstance(target, types.Class):
-        #     raise errors.AtoTypeError(
-        #         f"Can only retype to classes, which '{target_name}' is not"
-        #     )
-        # if not target.is_subclass_of(obj.type_):
-        #     raise errors.AtoTypeError(
-        #         f"Cannot retype '{obj_name}' to '{target_name}' because '{target_name}' is not a subclass of '{obj.type_.name}'"
-        #     )
-
-        # obj.type_ = target
-        # FIXME:
-        return (tuple(None, None),)
+        original_name = self.visit_ref_helper(ctx.name_or_attr(0))
+        replaced_name = self.visit_ref_helper(ctx.name_or_attr(1))
+        return ((None, Replace(original=original_name, replacement=replaced_name)),)
 
 
 def compile_file(

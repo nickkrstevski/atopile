@@ -1,5 +1,5 @@
 from atopile.dev.parse import parse_file, make_parser
-from atopile.model2.datamodel1 import Object, Link, Import, Dizzy, Type, compile_file
+from atopile.model2.datamodel1 import Object, Link, Import, Dizzy, Type, Replace
 from atopile.model2.datamodel1 import MODULE, COMPONENT, PIN, SIGNAL, INTERFACE
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
 from atopile.model2 import errors
@@ -162,6 +162,15 @@ def test_visitConnect_stmt_simple():
     ret = dizzy.visitConnect_stmt(ctx)
     assert ret == ((None, Link(source=('pin_a',), target=('pin_b',))),)
 
+def test_visitRetype_stmt():
+    parser = make_parser("a -> b")
+    ctx = parser.retype_stmt()
+
+    dizzy = Dizzy("test.ato")
+    ret = dizzy.visitRetype_stmt(ctx)
+    assert len(ret) == 1
+    assert ret[0] == (None, Replace(original=('a',), replacement=('b',)))
+
 def test_visitConnect_stmt_instance():
     parser = make_parser("pin pin_a ~ signal sig_b")
     ctx = parser.connect_stmt()
@@ -188,7 +197,7 @@ def test_visitBlockdef():
         """
         component comp1 from comp2:
             signal signal_a
-        """
+        """.strip()
     )
     ctx = parser.blockdef()
 
@@ -197,8 +206,8 @@ def test_visitBlockdef():
     assert results == (
         ('comp1',),
         Object(
-            supers=(COMPONENT + (('comp2',),)),
-            locals_=((('signal_a',), Object(supers=SIGNAL)),)
+            supers=(('comp2',),),
+            locals_=((('signal_a',), Object(supers=SIGNAL, locals_=())),)
         )
     )
 
@@ -244,7 +253,25 @@ def test_visitModule1LayerDeep():
         locals_= (
             (('signal_a',), Object(supers=SIGNAL)),
             (('signal_b',), Object(supers=SIGNAL)),
-            ((None, Link(source=('signal_a',), target=('signal_b',))),)
+            (None, Link(source=('signal_a',), target=('signal_b',)),)
+        ))),
+    ))
+
+def test_visitModule_pin_to_signal():
+    tree = parse_file(
+        """
+        component comp1:
+            signal signal_a ~ pin p1
+        """
+    )
+    dizzy = Dizzy("test.ato")
+    results = dizzy.visitFile_input(tree)
+    assert results == Object(supers=MODULE, locals_=(
+        (('comp1',), Object(supers=COMPONENT,
+        locals_= (
+            (None, Link(source=('signal_a',), target=('p1',)),),
+            (('signal_a',), Object(supers=SIGNAL)),
+            (('p1',), Object(supers=PIN))
         ))),
     ))
 
