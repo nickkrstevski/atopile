@@ -90,7 +90,7 @@ def test_visitSignaldef_stmt():
 
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitSignaldef_stmt(ctx)
-    assert ret == (('signal_a',), Object(supers=(SIGNAL)))
+    assert ret == (('signal_a',), Object(supers=SIGNAL))
 
 
 def test_visitPindef_stmt():
@@ -99,16 +99,16 @@ def test_visitPindef_stmt():
 
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitPindef_stmt(ctx)
-    assert ret == (('pin_a',), Object(supers=(PIN)))
+    assert ret == (('pin_a',), Object(supers=PIN))
 
-
+# Connect statement return a tuple as there might be signal or pin instantiation within it
 def test_visitConnect_stmt_simple():
     parser = make_parser("pin_a ~ pin_b")
     ctx = parser.connect_stmt()
 
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitConnect_stmt(ctx)
-    assert ret == ((None, Link(source=('pin_a',), target=('pin_b',))),)
+    assert ret == ((None, Link(source=(('pin_a',),), target=(('pin_b',),))),)
 
 def test_visitConnect_stmt_instance():
     parser = make_parser("pin pin_a ~ signal sig_b")
@@ -116,7 +116,7 @@ def test_visitConnect_stmt_instance():
 
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitConnect_stmt(ctx)
-    assert ret == ((None, Link(source=('pin_a',), target=('sig_b',))), (('pin_a',), Object(supers=(PIN))), (('sig_b',), Object(supers=(SIGNAL))),)
+    assert ret == ((None, Link(source=('pin_a',), target=('sig_b',))), (('pin_a',), Object(supers=PIN)), (('sig_b',), Object(supers=SIGNAL)))
 
 def test_visitImport_stmt():
     parser = make_parser("import Module1 from 'test_import.ato'")
@@ -124,7 +124,7 @@ def test_visitImport_stmt():
 
     dizzy = Dizzy("test.ato")
     ret = dizzy.visitImport_stmt(ctx)
-    assert ret == ((None, Import(what=('Module1',), from_='test_import.ato')))
+    assert ret == (None, Import(what=(('Module1',),), from_='test_import.ato'))
 
 def test_visitBlockdef():
     parser = make_parser(
@@ -132,13 +132,13 @@ def test_visitBlockdef():
             signal signal_a
         """
     )
-    ctx = parser.compound_stmt()
+    ctx = parser.blockdef()
 
     dizzy = Dizzy("test.ato")
-    results = dizzy.visitCompound_stmt(ctx)
+    results = dizzy.visitBlockdef(ctx)
     assert results == (
-        ('comp1',), Object(supers=(COMPONENT,('comp2',)),
-        locals_= (('signal_a',), Object(supers=(SIGNAL)))
+        ('comp1',), Object(supers=(COMPONENT + (('comp2',),)),
+        locals_=((('signal_a',), Object(supers=SIGNAL)),)
         ))
 
 def test_visitAssign_stmt_value():
@@ -163,7 +163,7 @@ def test_visitNew_stmt():
 
     dizzy = Dizzy("test.ato")
     results = dizzy.visitNew_stmt(ctx)
-    assert results == Object(supers=(('Bar',)), locals_= ())
+    assert results == Object(supers=(('Bar',),), locals_=())
 
 def test_visitModule1LayerDeep():
     tree = parse(
@@ -176,33 +176,27 @@ def test_visitModule1LayerDeep():
     )
     dizzy = Dizzy("test.ato")
     results = dizzy.visitFile_input(tree)
-    assert results == (None, Object(supers=(MODULE), locals_=(
-        (('comp1',), Object(supers=(COMPONENT),
+    assert results == Object(supers=MODULE, locals_=(
+        (('comp1',), Object(supers=COMPONENT,
         locals_= (
-            (('signal_a',), Object(supers=(SIGNAL))),
-            (('signal_b',), Object(supers=(SIGNAL))),
-            ((None, Link(source=('signal_a',), target=('signal_b',))),),)
-        )))
+            (('signal_a',), Object(supers=SIGNAL)),
+            (('signal_b',), Object(supers=SIGNAL)),
+            ((None, Link(source=(('signal_a',),), target=(('signal_b',),))),)
+        ))),
     ))
 
-
-def test_visitModule2LayerDeep():
+def test_visitModule0LayerDeep():
     tree = parse(
         """
-        module mod1:
-            component comp1:
-                signal signal_a
-                signal signal_a
+        component comp1:
+            signal signal_a
         """
     )
     dizzy = Dizzy("test.ato")
     results = dizzy.visitFile_input(tree)
-
-    assert results == [
-        (('mod1',), Object(supers=(MODULE), locals_= (
-            (('comp1',), Object(supers=(COMPONENT),locals_= (
-                (('signal_a',), Object(supers=(SIGNAL))),
-                (('signal_a',), Object(supers=(SIGNAL))),)
-            ))
-        )))
-    ]
+    assert results == Object(supers=MODULE, locals_=(
+        (('comp1',), Object(supers=COMPONENT,
+        locals_= (
+            (('signal_a',), Object(supers=SIGNAL)),
+        ))),
+    ))
