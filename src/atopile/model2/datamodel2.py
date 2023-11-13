@@ -15,11 +15,10 @@ between scopes. For example, "a.b.c" is a reference to "c" in the scope of
 
 import logging
 import collections
-import itertools
 from pathlib import Path
 from typing import Any, Iterable, Optional, Mapping
 
-from attrs import define, resolve_types, field
+from attrs import define, resolve_types
 
 from atopile.model2 import datamodel1 as dm1
 from atopile.model2 import errors
@@ -28,50 +27,10 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
-####
-
-# Practically speaking this is dm1.5, because all we're doing is walking the
-# dm1 tree and creating congruent frame objects so we can map references to objects
-
-####
-
-class Frame:
-    def __init__(self) -> None:
-        # the ref-bindings contains a mapping of all the names defined in the object and their values
-        self.ref_bindings: Mapping[dm1.Ref, Any] = {}
-
-        # the closure is the parent lexical scope which we lookup inherited ref-bindings
-        self.inherited_frames: Iterable["Frame"] = []
-
-    def search_ref(self, ref: dm1.Ref) -> tuple[Any, dm1.Ref, "Frame"]:
-        """
-        Lookup a ref in the frame.
-
-        Returns a tuple of:
-        - the value found
-        - the remaining reference
-        - the frame in which the value was found
-        """
-        for frame in reversed(itertools.chain(self.inherited_frames, (self,))):
-            for i in range(len(ref)):
-                matching_ref = ref[:i]
-                remaining_ref = ref[i:]
-                try:
-                    return self.ref_bindings[matching_ref], remaining_ref, frame
-                except KeyError:
-                    continue
-        raise KeyError(f"Frame contains no ref")
-
-    @staticmethod
-    def from_mapping(mapping: Mapping[dm1.Ref, Any]) -> "Frame":
-        raise NotImplementedError
-
-######
-
 @define
 class Link:
     start_instance: "Object"
-    start_node: "Object"  # FIXME: I'm not sure how this works with replacement operators being applied afterwards, particularly with nested links
+    start_node: "Object"
     end_instance: "Object"
     end_node: "Object"
 
@@ -89,11 +48,11 @@ class Import:
 
 @define
 class Object:
-    # these are populated by Wendy
+    # these are populated by Scoop
     locals_: Optional[Mapping] = None
     supers: Optional[tuple["Object"]] = None
 
-    # these are created by Wendy, for the next guy
+    # these are created by Scoop, for the next guy
     name_bindings: Optional[Mapping] = None
     closure: Optional[Mapping] = None
 
@@ -119,9 +78,9 @@ BUILTINS = {
 }
 
 
-class Wendy:
+class Scoop:
     """
-    Wendy's job is to walk the tree of dm1 objects, creating
+    Scoop's job is to walk the tree of dm1 objects, creating
     Frames and empty dm2 analog Objects for each dm1 object
     """
     def __init__(self) -> None:
@@ -168,7 +127,7 @@ class Lofty:
         search_paths: Iterable[Path],
         path_dm1_map: dict[Path, dm1.Object],
     ) -> None:
-        # these name-bindings and lexical scopes are created by Wendy
+        # these name-bindings and lexical scopes are created by Scoop
         # their keys are the names for the given scope, and the values
         # are the dm1 objects
         self.dm1_id_object_map = dm1_id_object_map
@@ -194,6 +153,14 @@ class Lofty:
                 return candidate_path.resolve().absolute()
         raise errors.AtoImportNotFoundError(f"Could not find import: {dep_name}")
 
+    def lookup_dm2_obj_by_ref(self, dm1_obj: dm1.Object, ref: dm1.Ref) -> Object:
+        dm1_closure = self.dm1_id_closure_map[id(dm1_obj)]
+        dm1_name_binding_map = self.dm1_id_name_binding_map[id(dm1_obj)]
+
+        internal_dm1_name_map = dm1_closure.new_child(dm1_name_binding_map)
+
+        return self.dm1_id_object_map[id(internal_dm1_name_map[ref])]
+
     def visit_generic(self, thing: Any, dm2_closure: collections.ChainMap) -> Any:
         """
         Handle visiting something - it'll work out where to dispatch the call.
@@ -218,18 +185,14 @@ class Lofty:
 
     def visit_dm1_Object(self, dm1_obj: dm1.Object, dm2_closure: collections.ChainMap) -> Object:
         """
+        Handle visiting a dm1.Object
         """
-        dm1_closure = self.dm1_id_closure_map[id(dm1_obj)]
-        dm1_name_binding_map = self.dm1_id_name_binding_map[id(dm1_obj)]
-
-        internal_dm1_name_map = dm1_closure.new_child(dm1_name_binding_map)
-
         dm2_obj = self.dm1_id_object_map[id(dm1_obj)]
 
         # find the objects representing the supers
-        # FIXME: this should do an actual lookup, not just a name-based one
+        # FIXME: this should do an actual lookup, not just a flat/dumb ref-based one
         # this should only be an issue with multi-part refs
-        dm2_obj.supers = tuple(self.dm1_id_object_map[id(internal_dm1_name_map[super_ref])] for super_ref in dm1_obj.supers)
+        dm2_obj.supers = tuple(self.lookup_dm2_obj_by_ref[dm1_obj, super_ref] for super_ref in dm1_obj.supers)
         dm2_obj.locals_ = tuple((name, self.visit_generic(obj)) for name, obj in dm1_obj.locals_)
         dm2_obj.name_bindings = dict(filter(lambda x: x[0] is not None, dm2_obj.locals_))
         dm2_obj.closure = dm2_closure.new_child(dm2_obj.name_bindings)
@@ -247,6 +210,7 @@ class Lofty:
         """
         Handle visiting a dm1.Replace
         """
+        return Replace()
 
     def visit_dm1_Import(self, dm1_thing: dm1.Import, dm2_closure: collections.ChainMap) -> Import:
         """
