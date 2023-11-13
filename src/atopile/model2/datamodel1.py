@@ -146,7 +146,7 @@ class Dizzy(AtopileParserVisitor):
             return filtered_results[0]
         return tuple(filtered_results)
 
-    def visitChildrenList(self, node) -> _Sentinel | list:
+    def visitChildrenTuple(self, node) -> _Sentinel | list:
         results = []
         last_result = self.defaultResult()
 
@@ -159,7 +159,7 @@ class Dizzy(AtopileParserVisitor):
             last_result = c.accept(self)
             results.append(last_result)
 
-        filtered_results = list(filter(lambda x: x is not NOTHING, results))
+        filtered_results = tuple(filter(lambda x: x is not NOTHING, results))
         if len(filtered_results) == 0:
             return NOTHING
         return filtered_results
@@ -172,8 +172,9 @@ class Dizzy(AtopileParserVisitor):
             raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
     def visitFile_input(self, ctx: ap.File_inputContext) -> Object:
-        #results: list[tuple[Type, Optional[str], Object]] = [self.visit(c) for c in ctx.getChildren()]
-        results = tuple(self.visitStmt(c) for c in ctx.stmt())
+        #TODO: change this to visitChildren?
+        results = self.visitChildrenTuple(ctx)
+        #tuple(self.visitStmt(c) for c in ctx.stmt())
         return Object(supers=MODULE, locals_=results)
 
 
@@ -192,9 +193,9 @@ class Dizzy(AtopileParserVisitor):
         If this is an int, convert it to one (for pins), else return the name as a string.
         """
         try:
-            return int(ctx.getText()),
+            return (int(ctx.getText()),)
         except ValueError:
-            return ctx.getText(),
+            return (ctx.getText(),)
 
     def visitAttr(self, ctx: ap.AttrContext) -> tuple[str]:
         return tuple(self.visitName(name) for name in ctx.name()) # Comprehension
@@ -203,14 +204,14 @@ class Dizzy(AtopileParserVisitor):
     def visitName_or_attr(self, ctx: ap.Name_or_attrContext) -> tuple[str]:
         if ctx.name():
             #TODO: I believe this should return a tuple
-            return self.visitName(ctx.name())
+            return self.visitName(ctx.name()),
         elif ctx.attr():
             return self.visitAttr(ctx.attr())
 
         raise errors.AtoError("Expected a name or attribute")
 
     def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Optional[Ref], Object]:
-        block_returns = self.visitChildren(ctx.block())
+        block_returns = self.visitChildrenTuple(ctx.block())
         super_name = None
         # if block has supers, add them in supers
         if ctx.FROM():
@@ -220,7 +221,7 @@ class Dizzy(AtopileParserVisitor):
                 )
             super_name = self.visitName_or_attr(ctx.name_or_attr())
             #TODO: check if we want to return the module/component type
-            block_supers = (self.visitBlocktype(ctx.blocktype()), super_name)
+            block_supers = self.visitBlocktype(ctx.blocktype()) + super_name
         # otherwise, just keep the block type as a super
         else:
             block_supers = self.visitBlocktype(ctx.blocktype())
@@ -326,14 +327,10 @@ class Dizzy(AtopileParserVisitor):
         """
         raise NotImplementedError
 
-    def visitNew_stmt(self, ctx: ap.New_stmtContext) -> tuple[Ref, Object]:
-        scope, name_to_init = self.visit(ctx.name_or_attr())
-        to_init = scope[name_to_init]
-        if not isinstance(to_init, types.Class):
-            raise errors.AtoTypeError(
-                f"Can only initialise classes, which '{name_to_init}' is not"
-            )
-        return to_init.make_instance()
+    def visitNew_stmt(self, ctx: ap.New_stmtContext) -> Object:
+        new_object_name = self.visitName_or_attr(ctx.name_or_attr())
+
+        return Object(supers=new_object_name, locals_=())
 
     def visitString(self, ctx: ap.StringContext) -> str:
         return ctx.getText().strip("\"'")
