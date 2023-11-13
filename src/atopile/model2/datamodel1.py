@@ -114,39 +114,20 @@ class _Sentinel(enum.Enum):
 NOTHING = _Sentinel.NOTHING
 
 
-# https://www.youtube.com/watch?v=drBge9JyloA
 class Dizzy(AtopileParserVisitor):
+    """
+    Dizzy is responsible for mixing cement, sand, aggregate, and water to create concrete.
+    Ref.: https://www.youtube.com/watch?v=drBge9JyloA
+    """
     def __init__(
         self,
         name: str,
-        # logger: logging.Logger,
     ) -> None:
         self.name = name
-        # self.logger = logger
         super().__init__()
 
     def defaultResult(self):
         return NOTHING
-
-    # def visitChildren(self, node):
-    #     results = []
-    #     last_result = self.defaultResult()
-
-    #     n = node.getChildCount()
-    #     for i in range(n):
-    #         if not self.shouldVisitNextChild(node, last_result):
-    #             return last_result
-
-    #         c = node.getChild(i)
-    #         last_result = c.accept(self)
-    #         results.append(last_result)
-
-    #     filtered_results = list(filter(lambda x:  x is not NOTHING, results))
-    #     if len(filtered_results) == 0:
-    #         return NOTHING
-    #     if len(filtered_results) == 1:
-    #         return filtered_results[0]
-    #     return tuple(filtered_results)
 
     def visit_iterable_helper(self, children: Iterable) -> tuple[tuple[Optional[Ref], Any]]:
         results = tuple(self.visit(child) for child in children)

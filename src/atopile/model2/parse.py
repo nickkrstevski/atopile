@@ -28,7 +28,7 @@ class ParserErrorListener(ErrorListener):
 
 
 @contextmanager
-def parser_of_text(src_path: str | Path, src_code: str) -> Iterator[AtopileParser]:
+def error_deferred_parser(src_path: str | Path, src_code: str) -> Iterator[AtopileParser]:
     error_listener = ParserErrorListener(src_path)
 
     input = InputStream(src_code)
@@ -46,7 +46,7 @@ def parser_of_text(src_path: str | Path, src_code: str) -> Iterator[AtopileParse
 
 
 def parse_text(src_path: str | Path, src_code: str) -> ParserRuleContext:
-    with parser_of_text(src_path, src_code) as parser:
+    with error_deferred_parser(src_path, src_code) as parser:
         tree = parser.file_input()
 
     return tree
