@@ -19,11 +19,6 @@ class Wendy:
         else:
             return f"❓ {name} (unknown)"
 
-    def parse_object(self, name, obj, parent_tree):
-        label = self.get_label(name, obj.supers)
-        subtree = parent_tree.add(label)
-        self.visit(obj, subtree)
-
     def parse_link(self,name, obj, parent_tree):
         parent_tree.add(obj.source + " 🔗 " + obj.target + " (Link)")
 
@@ -45,7 +40,6 @@ class Wendy:
         elif isinstance(input_node, Object):
             for ref, obj in input_node.locals_:
                 name = ref[0]
-                self.parse_object(name, obj, rich_tree)
                 label = self.get_label(name, obj.supers)
                 subtree = rich_tree.add(label)
                 self.visit(obj, subtree)
@@ -59,6 +53,46 @@ class Wendy:
         return self.visit(dm1_tree, tree)
 
 # # Display the tree
-# tree_builder = Wendy()
-# tree = tree_builder.build_tree(dm2)
-# print(tree)
+dm2 = Object(
+        supers=MODULE,
+        locals_=(
+            (('comp1',), Object(
+                supers=COMPONENT,
+                locals_=((('comp1','comp2'), Object(
+                supers=COMPONENT,
+                locals_=(
+                    (('signal_a',), Object(
+                        supers=SIGNAL,
+                        locals_=()
+                    )),(('signal_b',), Object(
+                        supers=SIGNAL,
+                        locals_=()
+                    ))
+                )
+            )),
+                    (('signal_a',), Object(
+                        supers=SIGNAL,
+                        locals_=()
+                    )),(('signal_b',), Object(
+                        supers=SIGNAL,
+                        locals_=()
+                    ))
+                )
+            )),
+            (('comp1',), Object(
+                supers=COMPONENT,
+                locals_=(
+                    (('interface1',), Object(
+                        supers=INTERFACE,
+                        locals_=()
+                    )),(('pin1',), Object(
+                        supers=PIN,
+                        locals_=()
+                    ))
+                )
+            )),
+        )
+)
+tree_builder = Wendy()
+tree = tree_builder.build_tree(dm2)
+print(tree)
