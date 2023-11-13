@@ -5,6 +5,7 @@ from antlr4 import CommonTokenStream, InputStream
 from antlr4.error.ErrorListener import ErrorListener
 
 from atopile.model2.errors import AtoSyntaxError
+from atopile.model2.parse import ParserRuleContext
 from atopile.parser.AtopileLexer import AtopileLexer
 from atopile.parser.AtopileParser import AtopileParser
 
@@ -29,3 +30,8 @@ def make_parser(src_code: str) -> AtopileParser:
     parser.addErrorListener(error_listener)
 
     return parser
+
+
+def parse_as_file(src_code: str) -> ParserRuleContext:
+    parser = make_parser(src_code)
+    return parser.file_input()

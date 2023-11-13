@@ -1,4 +1,4 @@
-from atopile.dev.parse import parse_file
+from atopile.dev.parse import parse_as_file
 from atopile.model2.datamodel1 import Object, Link, Import, Replace, MODULE, COMPONENT, PIN, SIGNAL, INTERFACE, NOTHING
 from rich.tree import Tree
 from rich import print
