@@ -148,20 +148,20 @@ class Dizzy(AtopileParserVisitor):
     #         return filtered_results[0]
     #     return tuple(filtered_results)
 
-    # def visitChildrenTuple(self, node) -> _Sentinel | tuple:
-    #     results = []
-    #     last_result = self.defaultResult()
+    def visitChildrenTuple(self, node) -> _Sentinel | tuple:
+        results = []
+        last_result = self.defaultResult()
 
-    #     n = node.getChildCount()
-    #     for i in range(n):
-    #         if not self.shouldVisitNextChild(node, last_result):
-    #             return last_result
+        n = node.getChildCount()
+        for i in range(n):
+            if not self.shouldVisitNextChild(node, last_result):
+                return last_result
 
-    #         c = node.getChild(i)
-    #         last_result = c.accept(self)
-    #         results.append(last_result)
+            c = node.getChild(i)
+            last_result = c.accept(self)
+            results.append(last_result)
 
-    #     return tuple(itertools.chain(filter(lambda x: x is not NOTHING, results)))
+        return tuple(itertools.chain(filter(lambda x: x is not NOTHING, results)))
 
     def visitSimple_stmt(self, ctx: ap.Simple_stmtContext) -> _Sentinel | tuple:
         """
@@ -191,7 +191,7 @@ class Dizzy(AtopileParserVisitor):
         #TODO: change this to visitChildren?
         # results = self.visitChildrenTuple(ctx)
         #tuple(self.visitStmt(c) for c in ctx.stmt())
-        return Object(supers=MODULE, locals_=self.visitChildren(ctx))
+        return Object(supers=MODULE, locals_=self.visitChildrenTuple(ctx)[0])
 
     def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Ref]:
         block_type_name = ctx.getText()

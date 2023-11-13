@@ -258,8 +258,7 @@ def test_visitModule0LayerDeep():
     dizzy = Dizzy("test.ato")
     results = dizzy.visitFile_input(tree)
     assert results == Object(supers=MODULE, locals_=(
-        (('comp1',), Object(supers=COMPONENT,
-        locals_= (
-            (('signal_a',), Object(supers=SIGNAL)),
-        ))),
+        (
+            ('comp1',), Object(supers=COMPONENT, locals_=((('signal_a',), Object(supers=SIGNAL)),))
+        ),
     ))
