@@ -65,11 +65,13 @@ class Frame:
 
 @define
 class Object:
-    name_bindings: Optional[ScopeMapping] = None
-    lexical_scope: Optional[ScopeMapping] = None
-    locals_: Optional[ScopeMapping] = None
+    # these are populated by Wendy
+    locals_: Optional[Mapping] = None
     supers: Optional[tuple["Object"]] = None
 
+    # these are created by Wendy, for the next guy
+    name_bindings: Optional[Mapping] = None
+    lexical_scope: Optional[Mapping] = None
 
 for cls in [Object, Link, Replace, Import]:
     resolve_types(cls)
@@ -93,6 +95,20 @@ BUILTINS = {
 }
 
 
+def create_name_binding_map(obj: Iterable[tuple[Optional[dm1.Ref], Any]]) -> Mapping:
+    """
+    Find all name-bindings, from a paired tuple of (name, obj)
+    """
+    name_bindings = {}
+    for ref, value in obj:
+        if ref is not None:
+            subdict = name_bindings
+            for name in ref[:-1]:
+                subdict = subdict.setdefault(name, {})
+            subdict[ref[-1]] = value
+    return name_bindings
+
+
 class Wendy:
     """
     Wendy's job is to walk the tree of dm1 objects, creating
@@ -109,39 +125,16 @@ class Wendy:
     def visit(self, obj: dm1.Object, dm1_lexical_scope: ChainMap) -> None:
         assert id(obj) not in self.dm1_id_object_map
 
-        # find all name-bindings
-        # beyond just regular assignments, imports create implicit name-bindings
-        import_name_bindings = {imp.what: imp for _, imp in filter(lambda x: isinstance(x[0], dm1.Import), obj.locals_)}
-
-        # name_bindings aren't all references in a dm1 object, only the NAMED, SINGLE references
-        # so first we need to filter out all the anonymous and path attribute references:
-        # (("a", "b"), Something), ("a",), SomethingElse), ...) -> {"a": SomethingElse}
-        def _named_and_single(ref: Optional[dm1.Ref]) -> bool:
-            return ref is not None and len(ref) == 1
-
-        assigned_name_bindings = dict(map(lambda x: (x[0][0], x[1]), filter(_named_and_single, obj.locals_)))
-
-        # check that there's no overlap between the name-bindings
-        if len(import_name_bindings.keys() & assigned_name_bindings.keys()) > 0:
-            raise self.collect_error(errors.AtoNameConflictError(f"Name's colliding: {import_name_bindings.keys() & assigned_name_bindings.keys()}"))
-
-        name_bindings = ChainMap(
-            import_name_bindings,
-            assigned_name_bindings
-        )
-
-        # check that there's no overlap between the name-bindings and the lexical scope
-        if len(name_bindings.keys() & dm1_lexical_scope.keys()) > 0:
-            self.collect_error(errors.AtoNameConflictError(f"Name's colliding in the outer scope: {name_bindings.keys() & dm1_lexical_scope.keys()}"))
+        dm1_name_bindings = create_name_binding_map(obj.locals_)
 
         # create the name-bindings and lexical scope for this object
-        self.dm1_id_frame_map[id(obj)] = Frame(name_bindings, dm1_lexical_scope)
+        self.dm1_id_frame_map[id(obj)] = Frame(dm1_name_bindings, dm1_lexical_scope)
 
         # create the hollow dm2 object
         self.dm1_id_object_map[id(obj)] = Object()
 
         # visit all of the children
-        child_dm1_lexical_scope = dm1_lexical_scope.new_child(name_bindings)
+        child_dm1_lexical_scope = dm1_lexical_scope.new_child(dm1_name_bindings)
         for _, local in obj.locals_:
             if isinstance(local, dm1.Object):
                 self.visit(
@@ -206,11 +199,23 @@ class Lofty:
             case _:
                 return thing
 
-    def map_dm1_ref_to_dm2(self, name: dm1.Ref, dm1_frame: Frame) -> Object:
+    def map_dm1_ref_to_dm2(self, name: dm1.Ref, dm1_frame: Frame, raise_exceptions = False) -> Object:
         """
         Map a name to a dm2 object via the dm1 object and the frame
         """
-        return self.dm1_id_dm2_map[dm1_frame.lexical_scope[name]]
+        try:
+            return self.dm1_id_dm2_map[dm1_frame.lexical_scope[name]]
+        except KeyError as ex:
+            ex2 = self.collect_error(
+                errors.AtoKeyError(
+                    f"Name not found: {name}",
+                    None,
+                    None,
+                    None,
+                )
+            )
+            if raise_exceptions:
+                raise ex2 from ex
 
     def visit_dm1_Object(self, dm1_obj: dm1.Object) -> Object:
         frame = self.dm1_id_frame_map[id(dm1_obj)]
