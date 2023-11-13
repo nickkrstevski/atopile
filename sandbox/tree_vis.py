@@ -13,11 +13,12 @@ tree = parse_file(
                 signal signal_a
     module mod_new:
         signal signal_b
+        signal signal_a
     """
 )
 # %%
-# dizzy = Dizzy("test.ato")
-# dm1 = dizzy.visit(tree)
+dizzy = Dizzy("test.ato")
+dm1 = dizzy.visit(tree)
 
 dm2 = Object(
         supers=MODULE,
@@ -61,15 +62,11 @@ dm2 = Object(
 )
 
 dm3 = Link(source="signal_a", target="signal_b")
-
-
-
+dm4 = Replace(original="signal_a", replacement="signal_b")
+dm5 = Import(what="bloop", from_="blurps.ato")
 
 # %%🦊
 # rich visualizer
-# prints out roughly in ato format, but with object types
-
-
 
 class Wendy:
     def get_label(self, name, supers):
@@ -112,16 +109,25 @@ class Wendy:
         subtree = parent_tree.add(label)
         self.visit(obj, subtree)
 
-    def parse_link(self, name, obj, parent_tree):
+    def parse_link(self,name, obj, parent_tree):
         parent_tree.add(obj.source + " 🔗 " + obj.target + " (Link)")
 
-    def parse_replace(self, name, obj, parent_tree):
-        parent_tree.add(obj.source + " 👈 " + obj.target + " (Replace)")
+    def parse_replace(self,name, obj, parent_tree):
+        parent_tree.add(obj.original + " 👈 " + obj.replacement + " (Replace)")
+
+    def parse_import(self,name, obj, parent_tree):
+        parent_tree.add(obj.what + " 📦 " + obj.from_ + " (Import)")
 
     def visit(self, input_node, rich_tree: Tree):
+        # Check the input node type and call the appropriate function
         if isinstance(input_node, Link):
             self.parse_link(input_node.source, input_node, rich_tree)
-        else:
+        elif isinstance(input_node, Replace):
+            self.parse_replace(input_node.original, input_node, rich_tree)
+        elif isinstance(input_node, Import):
+            self.parse_import(input_node.what, input_node, rich_tree)
+        # objects have locals, which can be nested, so we need to recursively call visit
+        elif isinstance(input_node, Object):
             for ref, obj in input_node.locals_:
                 name = ref[0]
                 if obj.supers == MODULE:
@@ -144,8 +150,7 @@ class Wendy:
 
 # Display the tree
 tree_builder = Wendy()
-tree = tree_builder.build_tree(dm3)
+tree = tree_builder.build_tree(dm2)
 print(tree)
-
 
 # %%
