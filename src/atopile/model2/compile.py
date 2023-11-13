@@ -18,7 +18,7 @@ import textwrap
 from atopile.model2 import types, errors
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
 from atopile.parser.AtopileParser import AtopileParser as ap
-from atopile.parser.parser2 import ParserRuleContext
+from atopile.model2.parse import ParserRuleContext
 from atopile.model2.scope2 import Scope
 from pathlib import Path
 
@@ -56,7 +56,7 @@ class Compiler(AtopileParserVisitor):
         try:
             return str(int(ctx.getText()))
         except ValueError:
-            raise errors.AtoCompileError("Expected an integer")
+            raise errors.AtoError("Expected an integer")
 
     def visitFile_input(self, ctx: ParserRuleContext) -> types.Class:
         file = types.Class(name=self.name)
@@ -73,7 +73,7 @@ class Compiler(AtopileParserVisitor):
             default_super = types.COMPONENT
             allowed_supers = [types.COMPONENT, types.BLOCK]
         else:
-            raise errors.AtoCompileError(f"Unknown block type '{block_type_name}'")
+            raise errors.AtoError(f"Unknown block type '{block_type_name}'")
         return default_super, allowed_supers
 
     def visitName(self, ctx: ap.NameContext) -> str:
@@ -106,7 +106,7 @@ class Compiler(AtopileParserVisitor):
                 raise errors.AtoTypeError(f"{attr} in scope {scope} isn't an object or class")
             return scope, path[-1]
 
-        raise errors.AtoCompileError("Expected a name or attribute")
+        raise errors.AtoError("Expected a name or attribute")
 
     def visitBlockdef(self, ctx: ap.BlockdefContext) -> types.Class:
         new_class_name = self.visit(ctx.name())
@@ -119,7 +119,7 @@ class Compiler(AtopileParserVisitor):
 
         if ctx.FROM():
             if not ctx.name_or_attr():
-                raise errors.AtoCompileError(
+                raise errors.AtoError(
                     "Expected a name or attribute after 'from'"
                 )
             super_name, super_scope = self.visitName_or_attr(ctx.name_or_attr())
@@ -145,7 +145,7 @@ class Compiler(AtopileParserVisitor):
     def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext):
         name = self.visit(ctx.totally_an_integer() or ctx.name())
         if not name:
-            raise errors.AtoCompileError("Pins must have a name")
+            raise errors.AtoError("Pins must have a name")
 
         if name in self.scope:
             raise errors.AtoNameConflictError(
@@ -160,7 +160,7 @@ class Compiler(AtopileParserVisitor):
     def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext):
         name = self.visit(ctx.name())
         if not name:
-            raise errors.AtoCompileError("Signals must have a name")
+            raise errors.AtoError("Signals must have a name")
 
         if name in self.scope:
             raise errors.AtoNameConflictError(
@@ -177,9 +177,9 @@ class Compiler(AtopileParserVisitor):
         scope, to_import = self.visitName_or_attr(ctx.name_or_attr())
 
         if not from_file:
-            raise errors.AtoCompileError("Expected a 'from <file-path>' after 'import'")
+            raise errors.AtoError("Expected a 'from <file-path>' after 'import'")
         if not to_import:
-            raise errors.AtoCompileError(
+            raise errors.AtoError(
                 "Expected a name or attribute to import after 'import'"
             )
 
@@ -317,11 +317,14 @@ class Compiler(AtopileParserVisitor):
         obj.type_ = target
 
 
-def get_ctx_from_exception(ex: Exception) -> typing.Optional[ParserRuleContext]:
+def get_locals_from_exception_in_class(ex: Exception, class_: typing.Type) -> typing.Optional[dict]:
     for tb, _ in list(traceback.walk_tb(ex.__traceback__))[::-1]:
-        if tb.f_locals.get("ctx"):
-            if isinstance(tb.f_locals.get("self"), Compiler):
-                return tb.f_locals["ctx"]
+        if isinstance(tb.f_locals.get("self"), class_):
+            return tb.f_locals
+
+
+def get_ctx_from_exception(ex: Exception) -> typing.Optional[ParserRuleContext]:
+    return get_locals_from_exception_in_class(ex, Compiler).get("ctx")
 
 
 def compile_file(
@@ -348,7 +351,7 @@ def compile_file(
 
     except Exception as ex:
         if ctx := get_ctx_from_exception(ex):
-            if isinstance(ex, errors.AtoCompileError):
+            if isinstance(ex, errors.AtoError):
                 message = ex.user_facing_name + ": " + ex.message
             else:
                 message = f"Unprocessed '{repr(ex)}' occurred during compilation"
