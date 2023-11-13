@@ -7,6 +7,7 @@ import enum
 import logging
 import textwrap
 import traceback
+import itertools
 import typing
 from contextlib import contextmanager
 from pathlib import Path
@@ -113,6 +114,7 @@ class _Sentinel(enum.Enum):
 NOTHING = _Sentinel.NOTHING
 
 
+# https://www.youtube.com/watch?v=drBge9JyloA
 class Dizzy(AtopileParserVisitor):
     def __init__(
         self,
@@ -126,43 +128,57 @@ class Dizzy(AtopileParserVisitor):
     def defaultResult(self):
         return NOTHING
 
-    def visitChildren(self, node):
-        results = []
-        last_result = self.defaultResult()
+    # def visitChildren(self, node):
+    #     results = []
+    #     last_result = self.defaultResult()
 
-        n = node.getChildCount()
-        for i in range(n):
-            if not self.shouldVisitNextChild(node, last_result):
-                return last_result
+    #     n = node.getChildCount()
+    #     for i in range(n):
+    #         if not self.shouldVisitNextChild(node, last_result):
+    #             return last_result
 
-            c = node.getChild(i)
-            last_result = c.accept(self)
-            results.append(last_result)
+    #         c = node.getChild(i)
+    #         last_result = c.accept(self)
+    #         results.append(last_result)
 
-        filtered_results = list(filter(lambda x:  x is not NOTHING, results))
-        if len(filtered_results) == 0:
-            return NOTHING
-        if len(filtered_results) == 1:
-            return filtered_results[0]
-        return tuple(filtered_results)
+    #     filtered_results = list(filter(lambda x:  x is not NOTHING, results))
+    #     if len(filtered_results) == 0:
+    #         return NOTHING
+    #     if len(filtered_results) == 1:
+    #         return filtered_results[0]
+    #     return tuple(filtered_results)
 
-    def visitChildrenTuple(self, node) -> _Sentinel | list:
-        results = []
-        last_result = self.defaultResult()
+    # def visitChildrenTuple(self, node) -> _Sentinel | tuple:
+    #     results = []
+    #     last_result = self.defaultResult()
 
-        n = node.getChildCount()
-        for i in range(n):
-            if not self.shouldVisitNextChild(node, last_result):
-                return last_result
+    #     n = node.getChildCount()
+    #     for i in range(n):
+    #         if not self.shouldVisitNextChild(node, last_result):
+    #             return last_result
 
-            c = node.getChild(i)
-            last_result = c.accept(self)
-            results.append(last_result)
+    #         c = node.getChild(i)
+    #         last_result = c.accept(self)
+    #         results.append(last_result)
 
-        filtered_results = tuple(filter(lambda x: x is not NOTHING, results))
-        if len(filtered_results) == 0:
-            return NOTHING
-        return filtered_results
+    #     return tuple(itertools.chain(filter(lambda x: x is not NOTHING, results)))
+
+    def visitSimple_stmt(self, ctx: ap.Simple_stmtContext) -> _Sentinel | tuple:
+        """
+        This is practically here as a development shim to assert the result is as intended
+        """
+        result = self.visitChildren(ctx)
+        if result is not NOTHING:
+            assert isinstance(result, tuple)
+            if len(result) > 0:
+                assert isinstance(result[0], tuple)
+                assert len(result[0]) == 2
+        return result
+
+    def visitSimple_stmts(self, ctx: ap.Simple_stmtsContext) -> _Sentinel | tuple:
+        if ctx.simple_stmt():
+            results = (self.visit(ctx_n) for ctx_n in ctx.simple_stmt())
+            return tuple(itertools.chain(filter(lambda x: x is not NOTHING, results)))
 
     def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> int:
         text = ctx.getText()
@@ -173,12 +189,11 @@ class Dizzy(AtopileParserVisitor):
 
     def visitFile_input(self, ctx: ap.File_inputContext) -> Object:
         #TODO: change this to visitChildren?
-        results = self.visitChildrenTuple(ctx)
+        # results = self.visitChildrenTuple(ctx)
         #tuple(self.visitStmt(c) for c in ctx.stmt())
-        return Object(supers=MODULE, locals_=results)
+        return Object(supers=MODULE, locals_=self.visitChildren(ctx))
 
-
-    def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple():
+    def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Ref]:
         block_type_name = ctx.getText()
         match block_type_name:
             case "module":
@@ -188,14 +203,27 @@ class Dizzy(AtopileParserVisitor):
             case _:
                 raise errors.AtoError(f"Unknown block type '{block_type_name}'")
 
+    def visit_ref_helper(
+        self,
+        ctx: ap.NameContext | ap.AttrContext | ap.Name_or_attrContext | ap.Totally_an_integerContext
+    ) -> Ref:
+        """
+        Visit any referencey thing and ensure it's returned as a reference
+        """
+        if isinstance(ctx, (ap.NameContext, ap.Totally_an_integerContext)):
+            return (self.visit(ctx),)
+        if isinstance(ctx, (ap.AttrContext, ap.Name_or_attrContext)):
+            return self.visit(ctx)
+        raise errors.AtoError(f"Unknown reference type: {type(ctx)}")
+
     def visitName(self, ctx: ap.NameContext) -> str | int:
         """
         If this is an int, convert it to one (for pins), else return the name as a string.
         """
         try:
-            return (int(ctx.getText()),)
+            return int(ctx.getText())
         except ValueError:
-            return (ctx.getText(),)
+            return ctx.getText()
 
     def visitAttr(self, ctx: ap.AttrContext) -> tuple[str]:
         return tuple(self.visitName(name) for name in ctx.name()) # Comprehension
@@ -204,36 +232,35 @@ class Dizzy(AtopileParserVisitor):
     def visitName_or_attr(self, ctx: ap.Name_or_attrContext) -> tuple[str]:
         if ctx.name():
             #TODO: I believe this should return a tuple
-            return self.visitName(ctx.name()),
+            return (self.visitName(ctx.name()),)
         elif ctx.attr():
             return self.visitAttr(ctx.attr())
 
         raise errors.AtoError("Expected a name or attribute")
 
     def visitBlockdef(self, ctx: ap.BlockdefContext) -> tuple[Optional[Ref], Object]:
-        block_returns = self.visitChildrenTuple(ctx.block())
-        super_name = None
-        # if block has supers, add them in supers
+        block_returns = self.visitChildren(ctx.block())
+
         if ctx.FROM():
             if not ctx.name_or_attr():
                 raise errors.AtoError(
                     "Expected a name or attribute after 'from'"
                 )
-            super_name = self.visitName_or_attr(ctx.name_or_attr())
-            #TODO: check if we want to return the module/component type
-            block_supers = self.visitBlocktype(ctx.blocktype()) + super_name
-        # otherwise, just keep the block type as a super
+            block_supers = (self.visit_ref_helper(ctx.name_or_attr()),)
         else:
             block_supers = self.visitBlocktype(ctx.blocktype())
 
-        return (self.visit(ctx.name()), Object(supers = block_supers, locals_ = block_returns))
+        return (
+            self.visit_ref_helper(ctx.name()),
+            Object(supers=block_supers, locals_=block_returns)
+        )
 
     #TODO: reimplement
-    def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[Optional[Ref], Object]:
-        name = self.visit(ctx.totally_an_integer() or ctx.name())
+    def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[tuple[Optional[Ref], Object]]:
+        ref = self.visit_ref_helper(ctx.totally_an_integer() or ctx.name())
 
         #TODO: provide context of where this error was found within the file
-        if not name:
+        if not ref:
             raise errors.AtoError("Pins must have a name")
         #TODO: reimplement this error handling at the above level
         # if name in self.scope:
@@ -241,14 +268,14 @@ class Dizzy(AtopileParserVisitor):
         #         f"Cannot redefine '{name}' in the same scope"
         #     )
         created_pin = Object(
-            supers=(PIN),
+            supers=PIN,
         )
 
-        return (name, created_pin)
+        return ((ref, created_pin),)
 
     #TODO: reimplement
-    def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext) -> tuple[Optional[Ref], Object]:
-        name = self.visit(ctx.name())
+    def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext) -> tuple[tuple[Optional[Ref], Object]]:
+        name = self.visit_ref_helper(ctx.name())
 
         #TODO: provide context of where this error was found within the file
         if not name:
@@ -262,12 +289,12 @@ class Dizzy(AtopileParserVisitor):
         #     raise errors.AtoNameConflictError(
         #         f"Cannot redefine '{name}' in the same scope"
         #     )
-        return (name, created_signal)
+        return ((name, created_signal),)
 
     # Import statements have no ref
-    def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[None, Import]:
+    def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> tuple[tuple[Ref, Import]]:
         from_file: str = self.visitString(ctx.string())
-        imported_element = self.visitName_or_attr(ctx.name_or_attr())
+        imported_element = self.visit_ref_helper(ctx.name_or_attr())
 
         if not from_file:
             raise errors.AtoError("Expected a 'from <file-path>' after 'import'")
@@ -280,24 +307,24 @@ class Dizzy(AtopileParserVisitor):
             # import everything
             raise NotImplementedError("import *")
 
-        return (None, Import(what = imported_element, from_ = from_file))
+        return ((imported_element, Import(what=imported_element, from_=from_file)),)
 
     # if a signal or a pin def statement are executed during a connection, it is returned as well
     def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Ref, Optional[tuple[Optional[Ref], Object]]]:
         if ctx.name_or_attr():
             # Returns a tuple
-            return self.visitName_or_attr(ctx.name_or_attr()), None
+            return self.visit_ref_helper(ctx.name_or_attr()), None
         elif ctx.numerical_pin_ref():
-            return self.visit(ctx.numerical_pin_ref()), None
+            return self.visit_ref_helper(ctx.numerical_pin_ref()), None
         elif ctx.pindef_stmt() or ctx.signaldef_stmt():
-            connectable = self.visitChildren(ctx)
+            connectable = self.visitChildren(ctx)[0]
             # return the object's ref and the created object itself
             return connectable[0], connectable
         else:
             raise ValueError("Unexpected context in visitConnectable")
 
 
-    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple(tuple[Optional[Ref], Object]):
+    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple[tuple[Optional[Ref], Object]]:
         """
         Connect interfaces together
         """
@@ -319,16 +346,16 @@ class Dizzy(AtopileParserVisitor):
         return tuple(returns)
 
 
-    # Tricky, not sure what to do about this guy. I guess that's a super?
     def visitWith_stmt(self, ctx: ap.With_stmtContext) -> tuple[Optional[Ref], Object]:
         """
+        # TODO: remove
         FIXME: I'm not entirely sure what this is for
         Remove it soon if we don't figure it out
         """
         raise NotImplementedError
 
     def visitNew_stmt(self, ctx: ap.New_stmtContext) -> Object:
-        new_object_name = self.visitName_or_attr(ctx.name_or_attr())
+        new_object_name = self.visit_ref_helper(ctx.name_or_attr())
 
         return Object(supers=new_object_name, locals_=())
 
@@ -358,38 +385,40 @@ class Dizzy(AtopileParserVisitor):
         if ctx.boolean_():
             return self.visitBoolean_(ctx.boolean_())
 
-    def visitAssign_stmt(self, ctx: ap.Assign_stmtContext) -> tuple[Ref, str]:
+    def visitAssign_stmt(self, ctx: ap.Assign_stmtContext) -> tuple[tuple[Ref, str]]:
         assigned_value_name = self.visitName_or_attr(ctx.name_or_attr())
         assigned_value = self.visitAssignable(ctx.assignable())
 
-        return (assigned_value_name, assigned_value)
+        return ((assigned_value_name, assigned_value),)
 
-    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[Optional[Ref], Object]:
+    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[tuple[Optional[Ref], Object]]:
         """
         This statement type will replace an existing block with a new one of a subclassed type
 
         Since there's no way to delete elements, we can be sure that the subclass is
         a superset of the superclass (confusing linguistically, makes sense logically)
         """
-        assigned_value_name = self.visitName_or_attr(ctx.name_or_attr(0))
-        assigned_value = self.visitName_or_attr(ctx.name_or_attr(1))
+        # assigned_value_name = self.visitName_or_attr(ctx.name_or_attr(0))
+        # assigned_value = self.visitName_or_attr(ctx.name_or_attr(1))
 
-        if not isinstance(obj, types.Object):
-            raise errors.AtoTypeError(
-                f"Can only retype objects, which '{obj_name}' is not"
-            )
+        # if not isinstance(obj, types.Object):
+        #     raise errors.AtoTypeError(
+        #         f"Can only retype objects, which '{obj_name}' is not"
+        #     )
 
-        target = target_scope[target_name]
-        if not isinstance(target, types.Class):
-            raise errors.AtoTypeError(
-                f"Can only retype to classes, which '{target_name}' is not"
-            )
-        if not target.is_subclass_of(obj.type_):
-            raise errors.AtoTypeError(
-                f"Cannot retype '{obj_name}' to '{target_name}' because '{target_name}' is not a subclass of '{obj.type_.name}'"
-            )
+        # target = target_scope[target_name]
+        # if not isinstance(target, types.Class):
+        #     raise errors.AtoTypeError(
+        #         f"Can only retype to classes, which '{target_name}' is not"
+        #     )
+        # if not target.is_subclass_of(obj.type_):
+        #     raise errors.AtoTypeError(
+        #         f"Cannot retype '{obj_name}' to '{target_name}' because '{target_name}' is not a subclass of '{obj.type_.name}'"
+        #     )
 
-        obj.type_ = target
+        # obj.type_ = target
+        # FIXME:
+        return (tuple(None, None),)
 
 
 def compile_file(
