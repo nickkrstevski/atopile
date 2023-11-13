@@ -1,5 +1,5 @@
 from atopile.dev.parse import parse_file
-from atopile.model2.datamodel1 import Object, Link, Import, Replace, MODULE, COMPONENT, PIN, SIGNAL, INTERFACE
+from atopile.model2.datamodel1 import Object, Link, Import, Replace, MODULE, COMPONENT, PIN, SIGNAL, INTERFACE, NOTHING
 from rich.tree import Tree
 from rich import print
 
@@ -38,11 +38,15 @@ class Wendy:
             self.parse_import(input_node.what, input_node, rich_tree)
         # objects have locals, which can be nested, so we need to recursively call visit
         elif isinstance(input_node, Object):
-            for ref, obj in input_node.locals_:
-                name = ref[0]
-                label = self.get_label(name, obj.supers)
-                subtree = rich_tree.add(label)
-                self.visit(obj, subtree)
+            if input_node.locals_ == NOTHING:
+                label = "📦 Sentinel.Nothing (Empty)"
+                rich_tree.add(label)
+            else:
+                for ref, obj in input_node.locals_:
+                    name = ref[0]
+                    label = self.get_label(name, obj.supers)
+                    subtree = rich_tree.add(label)
+                    self.visit(obj, subtree)
         else:
             raise TypeError(f"Unknown type {type(input_node)}")
         return rich_tree
