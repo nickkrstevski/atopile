@@ -4,22 +4,17 @@ In building this datamodel, we check for name collisions, but we don't resolve t
 """
 
 import enum
-import logging
-import textwrap
-import traceback
 import itertools
+import logging
 import typing
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Optional, Iterable
+from typing import Any, Iterable, Optional
 
 from attrs import define, field
 
 from atopile.model2 import errors, types
-from atopile.model2.scope2 import Scope
+from atopile.model2.parse import ParserRuleContext
 from atopile.parser.AtopileParser import AtopileParser as ap
 from atopile.parser.AtopileParserVisitor import AtopileParserVisitor
-from atopile.model2.parse import ParserRuleContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -29,25 +24,32 @@ Ref = tuple[str | int]
 
 
 @define
-class Link:
+class Base:
+    # this is a str rather than a path because it might just be virtual
+    src_path: Optional[str] = field(default=None, kw_only=True, eq=False)
+    src_ctx: Optional[ParserRuleContext] = field(default=None, kw_only=True, eq=False)
+
+
+@define
+class Link(Base):
     source: Ref
     target: Ref
 
 
 @define
-class Replace:
+class Replace(Base):
     original: Ref
     replacement: Ref
 
 
 @define
-class Import:
+class Import(Base):
     what: Ref
     from_: str
 
 
 @define
-class Object:
+class Object(Base):
     supers: tuple[Ref] = field(factory=tuple)
     locals_: tuple[tuple[Optional[Ref], Any]] = field(factory=tuple)
 
@@ -101,16 +103,20 @@ INTERFACE = (("interface",),)
 
 ## Return struct
 
+
 class Type(enum.Enum):
     LINK = enum.auto()
     OBJECT = enum.auto()
     REPLACE = enum.auto()
+
 
 ## Builder
 
 
 class _Sentinel(enum.Enum):
     NOTHING = enum.auto()
+
+
 NOTHING = _Sentinel.NOTHING
 
 
@@ -119,17 +125,21 @@ class Dizzy(AtopileParserVisitor):
     Dizzy is responsible for mixing cement, sand, aggregate, and water to create concrete.
     Ref.: https://www.youtube.com/watch?v=drBge9JyloA
     """
+
     def __init__(
         self,
         name: str,
     ) -> None:
-        self.name = name
+        # TODO: get this outta here
+        self.src_path = name
         super().__init__()
 
     def defaultResult(self):
         return NOTHING
 
-    def visit_iterable_helper(self, children: Iterable) -> tuple[tuple[Optional[Ref], Any]]:
+    def visit_iterable_helper(
+        self, children: Iterable
+    ) -> tuple[tuple[Optional[Ref], Any]]:
         results = tuple(self.visit(child) for child in children)
         return tuple(itertools.chain(*filter(lambda x: x is not NOTHING, results)))
 
@@ -157,7 +167,9 @@ class Dizzy(AtopileParserVisitor):
             raise errors.AtoError("Unexpected statement type")
         return value
 
-    def visitSimple_stmts(self, ctx: ap.Simple_stmtsContext) -> tuple[tuple[Optional[Ref], Any]]:
+    def visitSimple_stmts(
+        self, ctx: ap.Simple_stmtsContext
+    ) -> tuple[tuple[Optional[Ref], Any]]:
         return self.visit_iterable_helper(ctx.simple_stmt())
 
     def visitTotally_an_integer(self, ctx: ap.Totally_an_integerContext) -> int:
@@ -168,7 +180,12 @@ class Dizzy(AtopileParserVisitor):
             raise errors.AtoTypeError(f"Expected an integer, but got {text}")
 
     def visitFile_input(self, ctx: ap.File_inputContext) -> Object:
-        return Object(supers=MODULE, locals_=self.visit_iterable_helper(ctx.stmt()))
+        return Object(
+            src_ctx=ctx,
+            src_path=self.src_path,
+            supers=MODULE,
+            locals_=self.visit_iterable_helper(ctx.stmt()),
+        )
 
     def visitBlocktype(self, ctx: ap.BlocktypeContext) -> tuple[Ref]:
         block_type_name = ctx.getText()
@@ -184,7 +201,10 @@ class Dizzy(AtopileParserVisitor):
 
     def visit_ref_helper(
         self,
-        ctx: ap.NameContext | ap.AttrContext | ap.Name_or_attrContext | ap.Totally_an_integerContext
+        ctx: ap.NameContext
+        | ap.AttrContext
+        | ap.Name_or_attrContext
+        | ap.Totally_an_integerContext,
     ) -> Ref:
         """
         Visit any referencey thing and ensure it's returned as a reference
@@ -205,12 +225,12 @@ class Dizzy(AtopileParserVisitor):
             return ctx.getText()
 
     def visitAttr(self, ctx: ap.AttrContext) -> tuple[str]:
-        return tuple(self.visitName(name) for name in ctx.name()) # Comprehension
+        return tuple(self.visitName(name) for name in ctx.name())  # Comprehension
 
     # TODO: reimplement that function
     def visitName_or_attr(self, ctx: ap.Name_or_attrContext) -> tuple[str]:
         if ctx.name():
-            #TODO: I believe this should return a tuple
+            # TODO: I believe this should return a tuple
             return (self.visitName(ctx.name()),)
         elif ctx.attr():
             return self.visitAttr(ctx.attr())
@@ -218,9 +238,9 @@ class Dizzy(AtopileParserVisitor):
         raise errors.AtoError("Expected a name or attribute")
 
     def visitBlock(self, ctx) -> tuple[tuple[Optional[Ref], Any]]:
-        if(ctx.simple_stmts()):
+        if ctx.simple_stmts():
             return self.visitSimple_stmts(ctx.simple_stmts())
-        elif(ctx.stmt()):
+        elif ctx.stmt():
             return self.visit_iterable_helper(ctx.stmt())
         else:
             raise errors.AtoError("Unexpected block type")
@@ -232,48 +252,50 @@ class Dizzy(AtopileParserVisitor):
 
         if ctx.FROM():
             if not ctx.name_or_attr():
-                raise errors.AtoError(
-                    "Expected a name or attribute after 'from'"
-                )
+                raise errors.AtoError("Expected a name or attribute after 'from'")
             block_supers = (self.visit_ref_helper(ctx.name_or_attr()),)
         else:
             block_supers = self.visitBlocktype(ctx.blocktype())
 
         return (
             self.visit_ref_helper(ctx.name()),
-            Object(supers=block_supers, locals_=block_returns)
+            Object(supers=block_supers, locals_=block_returns),
         )
 
-    #TODO: reimplement
-    def visitPindef_stmt(self, ctx: ap.Pindef_stmtContext) -> tuple[tuple[Optional[Ref], Object]]:
+    # TODO: reimplement
+    def visitPindef_stmt(
+        self, ctx: ap.Pindef_stmtContext
+    ) -> tuple[tuple[Optional[Ref], Object]]:
         ref = self.visit_ref_helper(ctx.totally_an_integer() or ctx.name())
 
-        #TODO: provide context of where this error was found within the file
+        # TODO: provide context of where this error was found within the file
         if not ref:
             raise errors.AtoError("Pins must have a name")
-        #TODO: reimplement this error handling at the above level
-        # if name in self.scope:
-        #     raise errors.AtoNameConflictError(
-        #         f"Cannot redefine '{name}' in the same scope"
-        #     )
+        # TODO: reimplement this error handling at the above level
         created_pin = Object(
+            src_path=self.src_path,
+            src_ctx=ctx,
             supers=PIN,
         )
 
         return ((ref, created_pin),)
 
-    #TODO: reimplement
-    def visitSignaldef_stmt(self, ctx: ap.Signaldef_stmtContext) -> tuple[tuple[Optional[Ref], Object]]:
+    # TODO: reimplement
+    def visitSignaldef_stmt(
+        self, ctx: ap.Signaldef_stmtContext
+    ) -> tuple[tuple[Optional[Ref], Object]]:
         name = self.visit_ref_helper(ctx.name())
 
-        #TODO: provide context of where this error was found within the file
+        # TODO: provide context of where this error was found within the file
         if not name:
             raise errors.AtoError("Signals must have a name")
 
         created_signal = Object(
+            src_path=self.src_path,
+            src_ctx=ctx,
             supers=(SIGNAL),
         )
-        #TODO: reimplement this error handling at the above level
+        # TODO: reimplement this error handling at the above level
         # if name in self.scope:
         #     raise errors.AtoNameConflictError(
         #         f"Cannot redefine '{name}' in the same scope"
@@ -296,10 +318,22 @@ class Dizzy(AtopileParserVisitor):
             # import everything
             raise NotImplementedError("import *")
 
-        return ((imported_element, Import(what=imported_element, from_=from_file)),)
+        return (
+            (
+                imported_element,
+                Import(
+                    src_path=self.src_path,
+                    src_ctx=ctx,
+                    what=imported_element,
+                    from_=from_file,
+                ),
+            ),
+        )
 
     # if a signal or a pin def statement are executed during a connection, it is returned as well
-    def visitConnectable(self, ctx: ap.ConnectableContext) -> tuple[Ref, Optional[tuple[Optional[Ref], Object]]]:
+    def visitConnectable(
+        self, ctx: ap.ConnectableContext
+    ) -> tuple[Ref, Optional[tuple[Optional[Ref], Object]]]:
         if ctx.name_or_attr():
             # Returns a tuple
             return self.visit_ref_helper(ctx.name_or_attr()), None
@@ -312,8 +346,9 @@ class Dizzy(AtopileParserVisitor):
         else:
             raise ValueError("Unexpected context in visitConnectable")
 
-
-    def visitConnect_stmt(self, ctx: ap.Connect_stmtContext) -> tuple[tuple[Optional[Ref], Object]]:
+    def visitConnect_stmt(
+        self, ctx: ap.Connect_stmtContext
+    ) -> tuple[tuple[Optional[Ref], Object]]:
         """
         Connect interfaces together
         """
@@ -321,7 +356,10 @@ class Dizzy(AtopileParserVisitor):
         target_name, target = self.visitConnectable(ctx.connectable(1))
 
         returns = [
-            (None, Link(source_name, target_name),)
+            (
+                None,
+                Link(source_name, target_name),
+            )
         ]
 
         # If the connect statement is also used to instantiate an element, add it to the return tuple
@@ -331,9 +369,8 @@ class Dizzy(AtopileParserVisitor):
         if target:
             returns.append(target)
 
-        #TODO: not sure that's the cleanest way to return a tuple
+        # TODO: not sure that's the cleanest way to return a tuple
         return tuple(returns)
-
 
     def visitWith_stmt(self, ctx: ap.With_stmtContext) -> tuple[Optional[Ref], Object]:
         """
@@ -346,7 +383,9 @@ class Dizzy(AtopileParserVisitor):
     def visitNew_stmt(self, ctx: ap.New_stmtContext) -> Object:
         new_object_name = self.visit_ref_helper(ctx.name_or_attr())
 
-        return Object(supers=new_object_name, locals_=())
+        return Object(
+            src_path=self.src_path, src_ctx=ctx, supers=new_object_name, locals_=()
+        )
 
     def visitString(self, ctx: ap.StringContext) -> str:
         return ctx.getText().strip("\"'")
@@ -380,7 +419,9 @@ class Dizzy(AtopileParserVisitor):
 
         return ((assigned_value_name, assigned_value),)
 
-    def visitRetype_stmt(self, ctx: ap.Retype_stmtContext) -> tuple[tuple[Optional[Ref], Replace]]:
+    def visitRetype_stmt(
+        self, ctx: ap.Retype_stmtContext
+    ) -> tuple[tuple[Optional[Ref], Replace]]:
         """
         This statement type will replace an existing block with a new one of a subclassed type
 
@@ -389,22 +430,14 @@ class Dizzy(AtopileParserVisitor):
         """
         original_name = self.visit_ref_helper(ctx.name_or_attr(0))
         replaced_name = self.visit_ref_helper(ctx.name_or_attr(1))
-        return ((None, Replace(original=original_name, replacement=replaced_name)),)
-
-
-def compile_file(
-    tree: ParserRuleContext,
-    logger: typing.Optional[logging.Logger] = None,
-) -> types.Class:
-    """
-    Compile the given tree into an atopile core representation
-    """
-
-    if logger is None:
-        logger = log
-
-    return Dizzy(
-        'test',
-        # logger=logger
-    ).visit(tree)
-
+        return (
+            (
+                None,
+                Replace(
+                    src_path=self.src_path,
+                    src_ctx=ctx,
+                    original=original_name,
+                    replacement=replaced_name,
+                ),
+            ),
+        )
