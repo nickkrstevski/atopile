@@ -1,8 +1,20 @@
 from atopile.dev.parse import parse_as_file
-from atopile.model2.datamodel1 import Object, Link, Import, Replace, MODULE, COMPONENT, PIN, SIGNAL, INTERFACE, NOTHING
+from atopile.model2.datamodel1 import (
+    Object,
+    Link,
+    Import,
+    Replace,
+    MODULE,
+    COMPONENT,
+    PIN,
+    SIGNAL,
+    INTERFACE,
+    NOTHING,
+)
 from rich.tree import Tree
 from rich import print
 from typing import Iterable
+
 
 def dot(strs: Iterable[str]) -> str:
     # if strs is a tuple with first element as an integer, return it as a string
@@ -10,6 +22,7 @@ def dot(strs: Iterable[str]) -> str:
         return str(strs[0])
     else:
         return ".".join(strs)
+
 
 class Wendy:
     def get_label(self, name, supers):
@@ -27,41 +40,39 @@ class Wendy:
         else:
             return f"❓ {name} (unknown)"
 
-    def parse_link(self,name, obj, parent_tree):
+    def parse_link(self, obj, parent_tree):
         parent_tree.add(dot(obj.source) + " 🔗 " + dot(obj.target) + " (Link)")
 
-    def parse_replace(self,name, obj, parent_tree):
+    def parse_replace(self, obj, parent_tree):
         parent_tree.add(dot(obj.original) + " 👉 " + dot(obj.replacement) + " (Replace)")
 
-    def parse_import(self,name, obj, parent_tree):
+    def parse_import(self, obj, parent_tree):
         parent_tree.add(dot(obj.what) + " 📦 " + obj.from_ + " (Import)")
+
+    def parse_object(self, name, obj, parent_tree):
+        # add a label for the object
+        subtree = parent_tree.add(self.get_label(name, obj.supers))
+        if obj.locals_ == NOTHING:
+            label = "📦 Sentinel.Nothing (Empty)"
+            parent_tree.add(label)
+        else:
+            for ref, obj in obj.locals_:
+                self.visit(ref, obj, subtree)
 
     def visit(self, ref: None | tuple[str], input_node, rich_tree: Tree):
         # Check the input node type and call the appropriate function
         if isinstance(input_node, Link):
-            self.parse_link(input_node.source, input_node, rich_tree)
+            self.parse_link(input_node, rich_tree)
         elif isinstance(input_node, Replace):
-            self.parse_replace(input_node.original, input_node, rich_tree)
+            self.parse_replace(input_node, rich_tree)
         elif isinstance(input_node, Import):
-            self.parse_import(input_node.what, input_node, rich_tree)
+            self.parse_import(input_node, rich_tree)
         elif isinstance(input_node, str):
             rich_tree.add(ref[0] + " = " + input_node)
         # objects have locals, which can be nested, so we need to recursively call visit
         elif isinstance(input_node, Object):
-            if ref is None:
-                name = "Unknown"
-            else:
-                name = str(ref[0])
-            # add a label for the object
-            subtree = rich_tree.add(self.get_label(name, input_node.supers))
-            if input_node.locals_ == NOTHING:
-                label = "📦 Sentinel.Nothing (Empty)"
-                rich_tree.add(label)
-            else:
-                for ref, obj in input_node.locals_:
-                    self.visit(ref, obj, subtree)
+            self.parse_object(ref[0], input_node, rich_tree)
         else:
-            # pass
             raise TypeError(f"Unknown type {type(input_node)}")
         return rich_tree
 
@@ -78,6 +89,8 @@ class Wendy:
         # Create a tree structure using rich.tree
         tree = self.build_tree(dm1_tree)
         print(tree)
+
+
 # =========================
 # example usage
 # # Display the tree

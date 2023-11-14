@@ -43,7 +43,7 @@ print(ato_file)
 file_contents = ato_file.read_text()
 
 # Print the file contents
-# print(file_contents)
+print(file_contents)
 
 # Process the file contents with your Dizzy and Wendy instances
 tree = dizzy.visitFile_input(parse_as_file(file_contents))
