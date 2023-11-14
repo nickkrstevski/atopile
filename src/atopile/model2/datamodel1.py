@@ -209,7 +209,7 @@ class Dizzy(AtopileParserVisitor):
         """
         Visit any referencey thing and ensure it's returned as a reference
         """
-        if isinstance(ctx, (ap.NameContext, ap.Totally_an_integerContext)):
+        if isinstance(ctx, (ap.NameContext, ap.Totally_an_integerContext, ap.Numerical_pin_refContext)):
             return (self.visit(ctx),)
         if isinstance(ctx, (ap.AttrContext, ap.Name_or_attrContext)):
             return self.visit(ctx)

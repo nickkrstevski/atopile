@@ -44,6 +44,8 @@ class Wendy:
             self.parse_replace(input_node.original, input_node, rich_tree)
         elif isinstance(input_node, Import):
             self.parse_import(input_node.what, input_node, rich_tree)
+        elif isinstance(input_node, str):
+            rich_tree.add(ref[0] + " = " + input_node)
         # objects have locals, which can be nested, so we need to recursively call visit
         elif isinstance(input_node, Object):
             if ref is None:
@@ -59,8 +61,8 @@ class Wendy:
                 for ref, obj in input_node.locals_:
                     self.visit(ref, obj, subtree)
         else:
-            pass
-            #raise TypeError(f"Unknown type {type(input_node)}")
+            # pass
+            raise TypeError(f"Unknown type {type(input_node)}")
         return rich_tree
 
     def build_tree(self, dm1_tree: Object):
