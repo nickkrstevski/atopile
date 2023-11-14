@@ -5,7 +5,11 @@ from rich import print
 from typing import Iterable
 
 def dot(strs: Iterable[str]) -> str:
-    return ".".join(strs)
+    # if strs is a tuple with first element as an integer, return it as a string
+    if isinstance(strs, tuple) and isinstance(strs[0], int):
+        return str(strs[0])
+    else:
+        return ".".join(strs)
 
 class Wendy:
     def get_label(self, name, supers):
@@ -40,12 +44,14 @@ class Wendy:
             self.parse_replace(input_node.original, input_node, rich_tree)
         elif isinstance(input_node, Import):
             self.parse_import(input_node.what, input_node, rich_tree)
+        elif isinstance(input_node, str):
+            rich_tree.add(ref[0] + " = " + input_node)
         # objects have locals, which can be nested, so we need to recursively call visit
         elif isinstance(input_node, Object):
             if ref is None:
                 name = "Unknown"
             else:
-                name = ref[0]
+                name = str(ref[0])
             # add a label for the object
             subtree = rich_tree.add(self.get_label(name, input_node.supers))
             if input_node.locals_ == NOTHING:
@@ -55,6 +61,7 @@ class Wendy:
                 for ref, obj in input_node.locals_:
                     self.visit(ref, obj, subtree)
         else:
+            # pass
             raise TypeError(f"Unknown type {type(input_node)}")
         return rich_tree
 
