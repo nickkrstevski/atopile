@@ -259,7 +259,12 @@ class Dizzy(AtopileParserVisitor):
 
         return (
             self.visit_ref_helper(ctx.name()),
-            Object(supers=block_supers, locals_=block_returns),
+            Object(
+                src_path=self.src_path,
+                src_ctx=ctx,
+                supers=block_supers,
+                locals_=block_returns,
+            ),
         )
 
     # TODO: reimplement
