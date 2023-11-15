@@ -262,6 +262,7 @@ Cmd+<click> on the link to gitlab
 
 # Manufacturing outputs
 Our CI pipeline will automatically generate the following outputs for you:
+
 - Gerbers (with githash automatically stamped on it!)
 - BOM
 - Pick and place file
