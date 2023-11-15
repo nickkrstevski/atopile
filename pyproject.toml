@@ -39,6 +39,7 @@ dependencies = [
     "ruamel.yaml",
     "semver",
     "rich",
+    "easyeda2kicad>=0.6.6",
 ]
 dynamic = ["version"]
 
