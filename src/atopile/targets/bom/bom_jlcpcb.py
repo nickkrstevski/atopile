@@ -1,3 +1,4 @@
+import copy
 import logging
 from collections import OrderedDict, ChainMap
 from pathlib import Path
@@ -176,11 +177,18 @@ class BomJlcpcbTarget(Target):
         components, _, spec_by_component = part_spec_groups(self.model, self.build_config.root_node)
 
         # get implicit spec-to-jlcpcb map
-        def _spec_data_to_map(spec_data: List[Dict[str, Any]]) -> Dict[ImplicitPartSpec, str]:
+        def _spec_data_to_map(
+            spec_data: List[Dict[str, Any]],
+            path_offset: Optional[Path] = None
+        ) -> Dict[ImplicitPartSpec, str]:
             spec_map = {}
-            for data in spec_data:
+            for _data in spec_data:
+                data = copy.deepcopy(_data)
                 if data.get("jlcpcb", "<fill-me>") != "<fill-me>":
-                    spec_map[ImplicitPartSpec.from_dict(data)] = data["jlcpcb"]
+                    # FIXME: please lord forgive me for these sins
+                    if not data["instance_of"].startswith("std/"):
+
+                        spec_map[ImplicitPartSpec.from_dict(data)] = data["jlcpcb"]
                 else:
                     log.warning(f"Missing jlcpcb part number for {data}.")
             return spec_map

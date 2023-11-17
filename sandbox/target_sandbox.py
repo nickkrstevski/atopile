@@ -34,3 +34,4 @@ bom_target = BomJlcpcbTarget(muster)
 bom_target.generate()
 
 #%%
+bom_target.
