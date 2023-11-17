@@ -1,11 +1,11 @@
+from itertools import chain
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 import yaml
 
-from atopile.utils import get_src_dir
 from atopile.project.config import Config
-
+from atopile.utils import get_src_dir
 
 CONFIG_FILENAME = "ato.yaml"
 ATO_DIR_NAME = ".ato"
@@ -100,10 +100,13 @@ class Project:
             )
 
     def resolve_import(
-        self, name: str, cwp: Optional[Path] = None
+        self,
+        name: str,
+        cwp: Optional[Path] = None,
+        additional_search_paths: Optional[Iterable[Path]] = None,
     ) -> Tuple[Path, Path]:
         non_relative_paths = []
-        for path in self.get_import_search_paths(cwp):
+        for path in chain(self.get_import_search_paths(cwp), additional_search_paths or []):
             abs_path = (path / name).resolve().absolute()
             if abs_path.exists():
                 if not abs_path.is_relative_to(self.root):

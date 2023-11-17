@@ -1,5 +1,5 @@
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, ChainMap
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -176,12 +176,30 @@ class BomJlcpcbTarget(Target):
         components, _, spec_by_component = part_spec_groups(self.model, self.build_config.root_node)
 
         # get implicit spec-to-jlcpcb map
-        specs_to_jlcpcb = {}
-        for data in jlcpcb_map.get("by-spec", []):
-            if data.get("jlcpcb", "<fill-me>") != "<fill-me>":
-                specs_to_jlcpcb[ImplicitPartSpec.from_dict(data)] = data["jlcpcb"]
-            else:
-                log.warning(f"Missing jlcpcb part number for {data}.")
+        def _spec_data_to_map(spec_data: List[Dict[str, Any]]) -> Dict[ImplicitPartSpec, str]:
+            spec_map = {}
+            for data in spec_data:
+                if data.get("jlcpcb", "<fill-me>") != "<fill-me>":
+                    spec_map[ImplicitPartSpec.from_dict(data)] = data["jlcpcb"]
+                else:
+                    log.warning(f"Missing jlcpcb part number for {data}.")
+            return spec_map
+
+        top_level_specs_to_jlcpcb = _spec_data_to_map(jlcpcb_map.get("by-spec", []))
+
+        # FIXME: big o'l hack; globbing the bom-maps and sorting them by length ISN'T a good way to do this
+        bom_map_paths = sorted(self.project.root.glob("**/*-bom-jlcpcb.yaml"), key=lambda p: len(p.parts))
+
+        bom_map_by_specs: dict[Path, Dict[ImplicitPartSpec, str]] = {}
+        for bom_map_path in bom_map_paths:
+            with bom_map_path.open() as f:
+                bom_map = yaml.load(f)
+            if not isinstance(bom_map, dict):
+                log.warning(f"Skipping {bom_map_path} because it is not in the correct format.")
+                continue
+            bom_map_by_specs[bom_map_path] = _spec_data_to_map(bom_map.get("by-spec", []))
+
+        specs_to_jlcpcb = ChainMap(top_level_specs_to_jlcpcb, *bom_map_by_specs.values())
 
         # build up component to jlcpcb map
         component_to_jlcpcb_map = {}
