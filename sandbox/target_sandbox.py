@@ -25,6 +25,8 @@ build_config = CustomBuildConfig(
 model = build_model(project, build_config)
 
 # %%
+%load_ext autoreload
+%autoreload 2
 from atopile.targets.bom.bom_jlcpcb import BomJlcpcbTarget
 from atopile.targets.targets import TargetMuster
 
@@ -34,4 +36,3 @@ bom_target = BomJlcpcbTarget(muster)
 bom_target.generate()
 
 #%%
-bom_target.

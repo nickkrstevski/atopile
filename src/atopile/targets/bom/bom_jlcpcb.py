@@ -179,16 +179,23 @@ class BomJlcpcbTarget(Target):
         # get implicit spec-to-jlcpcb map
         def _spec_data_to_map(
             spec_data: List[Dict[str, Any]],
-            path_offset: Optional[Path] = None
+            path_offset: Optional[str] = None
         ) -> Dict[ImplicitPartSpec, str]:
+            """
+            Convert a list of spec data to a map of spec to jlcpcb part number.
+            If the path_offset is provided, it will be prepended to the instance_of field.
+            """
             spec_map = {}
             for _data in spec_data:
                 data = copy.deepcopy(_data)
                 if data.get("jlcpcb", "<fill-me>") != "<fill-me>":
                     # FIXME: please lord forgive me for these sins
-                    if not data["instance_of"].startswith("std/"):
+                    if path_offset is not None:
+                        if not data["instance_of"].startswith("std/"):
+                            data["instance_of"] = path_offset + "/" + data["instance_of"]
 
-                        spec_map[ImplicitPartSpec.from_dict(data)] = data["jlcpcb"]
+                    spec_map[ImplicitPartSpec.from_dict(data)] = data["jlcpcb"]
+
                 else:
                     log.warning(f"Missing jlcpcb part number for {data}.")
             return spec_map
@@ -205,7 +212,8 @@ class BomJlcpcbTarget(Target):
             if not isinstance(bom_map, dict):
                 log.warning(f"Skipping {bom_map_path} because it is not in the correct format.")
                 continue
-            bom_map_by_specs[bom_map_path] = _spec_data_to_map(bom_map.get("by-spec", []))
+            relative_path_parent = bom_map_path.relative_to(self.project.root).parent
+            bom_map_by_specs[bom_map_path] = _spec_data_to_map(bom_map.get("by-spec", []), str(relative_path_parent))
 
         specs_to_jlcpcb = ChainMap(top_level_specs_to_jlcpcb, *bom_map_by_specs.values())
 
