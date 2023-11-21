@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atopile"
-description = "A toolchain bringing the best of software development to the real-world!"
+description = "A toolchain bringing the best of software development to the real world!"
 readme = "README.md"
 requires-python = ">=3.11"
 license = ""
@@ -40,7 +40,8 @@ dependencies = [
     "semver",
     "rich",
     "gitpython",
-    "easyeda2kicad"
+    "easyeda2kicad",
+    "pandas"
 ]
 dynamic = ["version"]
 

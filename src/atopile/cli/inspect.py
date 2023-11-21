@@ -1,20 +1,40 @@
 import logging
+from typing import Iterable
 
 import click
+import numpy as np
+import pandas as pd
 import uvicorn
-from atopile.project.project import Project
-from atopile.project.config import BuildConfig
+from rich.console import Console
+from rich.table import Table, Column
+
 from atopile.cli.common import ingest_config_hat
-from atopile.parser.parser import build_model
 from atopile.model.accessors import ModelVertexView
 from atopile.model.model import EdgeType, VertexType
-
-from rich.console import Console
-from rich.table import Table
+from atopile.parser.parser import build_model
+from atopile.project.config import BuildConfig
+from atopile.project.project import Project
 
 # configure logging
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
+class DisplayPin:
+    def __init__(self, pin_mvv) -> None:
+        self.is_displayed = True
+        self.mvv = pin_mvv
+        self.associated_pin = []
+        self.associated_signal = []
+        self.associated_interface = []
+        self.cons_by_pin = []
+        self.cons_by_signal = []
+        self.cons_by_intf = []
+
+def make_list_friendly(things: Iterable[ModelVertexView], type: str = 'ref') -> str:
+    if type == 'ref':
+        return ", ".join(thing.ref for thing in things)
+    else:
+        return ", ".join(thing.class_path for thing in things)
 
 
 # configure UI
@@ -37,32 +57,99 @@ def inspect(
 
     # build core model
     model = build_model(project, build_config)
+    print(project.module_dir)
     # Putting this as a trial
     root_node = "buck_reg.ato:BuckReg.buck_converter"
     root_mvv = ModelVertexView.from_path(model, root_node)
     return_list = root_mvv.get_adjacents("in", EdgeType.part_of)
-    pin_list = []
-    signal_list = []
-    interface_list = []
+
+    # we start by creating a list of connections between of connection pairs
+    # between pins, signals and interfaces on the selected component or module
+    available_list: Iterable[tuple[ModelVertexView, ModelVertexView]] = []
     for element in return_list:
-        element_type = element.vertex_type
-        if element_type == VertexType.interface:
-            interface_list.append(element)
-        elif element_type == VertexType.signal:
-            signal_list.append(element)
-        elif element_type == VertexType.pin:
-            pin_list.append(element)
+        available_list.append((element, None))
+        pin_adjacents = list(element.get_adjacents_with_edge_types("in", EdgeType.connects_to)) + list(element.get_adjacents_with_edge_types("out", EdgeType.connects_to))
+        for pin_adjacent in pin_adjacents:
+            if element.parent == pin_adjacent[1].parent:
+                available_list.append((element, pin_adjacent[1]))
 
-    table = Table(title="Available pins on component")
+    # we then create an equivalent list of pairs between the pins and signals of the component
+    # and the element from neighboring components. modules and interfaces that are connected to it
+    consumed_list: Iterable[tuple[ModelVertexView, ModelVertexView]] = []
+    for element in return_list:
+        pin_adjacents = list(element.get_adjacents_with_edge_types("in", EdgeType.connects_to)) + list(element.get_adjacents_with_edge_types("out", EdgeType.connects_to))
+        for pin_adjacent in pin_adjacents:
+            if element.parent != pin_adjacent[1].parent:
+                consumed_list.append((element, pin_adjacent[1]))
 
-    table.add_column("Pin #", justify="center", style="cyan", no_wrap=True)
-    table.add_column("Signals",  justify="center", style="magenta")
-    table.add_column("Interfaces", justify="center", style="green")
+    # we now create a list of object that will represent a pin and the elements associated with it
+    displayed_pins: Iterable[DisplayPin] = []
+    for element in available_list:
+        # pins look like this within the available_list: (pin, None)
+        if not element[1] and element[0].vertex_type == VertexType.pin:
+            displayed_pins.append(DisplayPin(element[0]))
 
-    table.add_row("Dec 20, 2019", "Star Wars: The Rise of Skywalker", "$952,110,690")
-    table.add_row("May 25, 2018", "Solo: A Star Wars Story", "$393,151,347")
-    table.add_row("Dec 15, 2017", "Star Wars Ep. V111: The Last Jedi", "$1,332,539,889")
-    table.add_row("Dec 16, 2016", "Rogue One: A Star Wars Story", "$1,332,439,889")
+    #TODO: the mechanism is broken for interfaces and will have to be fixed
+    # now that the element is created, we add associated element to it
+    for display_pin in displayed_pins:
+        for element in available_list:
+            # pins look like this within the available_list: (pin, None), they should be discarded
+            if element[1] and display_pin.mvv.ref == element[0].ref:
+                if element[1].vertex_type == VertexType.pin:
+                    display_pin.associated_pin.append(element[1])
+                elif element[1].vertex_type == VertexType.signal: # This will probs not work for interface, since they are defined a layer deeper in the graph
+                    display_pin.associated_signal.append(element[1])
+                elif element[1].vertex_type == VertexType.interface:
+                    display_pin.associated_interface.append(element[1])
 
+    # we now add the element that are consuming each pin
+    for display_pin in displayed_pins:
+        for consumer in consumed_list:
+            if consumer[0].ref == display_pin.mvv.ref:
+                if consumer[1].vertex_type == VertexType.pin:
+                    display_pin.cons_by_pin.append(consumer[1])
+                elif consumer[1].vertex_type == VertexType.signal: # This will probs not work for interface, since they are defined a layer deeper in the graph
+                    display_pin.cons_by_signal.append(consumer[1])
+                elif consumer[1].vertex_type == VertexType.interface:
+                    display_pin.cons_by_intf.append(consumer[1])
+            for signal in display_pin.associated_signal:
+                if consumer[0].ref == signal.ref:
+                    if consumer[1].vertex_type == VertexType.pin:
+                        display_pin.cons_by_pin.append(consumer[1])
+                    elif consumer[1].vertex_type == VertexType.signal: # This will probs not work for interface, since they are defined a layer deeper in the graph
+                        display_pin.cons_by_signal.append(consumer[1])
+                    elif consumer[1].vertex_type == VertexType.interface:
+                        display_pin.cons_by_intf.append(consumer[1])
+            for interface in display_pin.associated_interface:
+                if consumer[0].ref == interface.ref:
+                    if consumer[1].vertex_type == VertexType.pin:
+                        display_pin.cons_by_pin.append(consumer[1])
+                    elif consumer[1].vertex_type == VertexType.signal: # This will probs not work for interface, since they are defined a layer deeper in the graph
+                        display_pin.cons_by_signal.append(consumer[1])
+                    elif consumer[1].vertex_type == VertexType.interface:
+                        display_pin.cons_by_intf.append(consumer[1])
+
+
+    # a rich table is create
+    table = Table(
+        Column(header="Pin#", justify="right"),
+        Column(header="Signals", justify="left"),
+        Column(header="Interface", justify="right"),
+        Column(header="Consumed by pin", justify="right"),
+        Column(header="Consumed by signal", justify="right"),
+        Column(header="Consumed by intf", justify="right"),
+        title="Available pins on " + root_node
+    )
+
+    for display_pin in displayed_pins:
+        table.add_row(
+            display_pin.mvv.ref,
+            make_list_friendly(display_pin.associated_signal),
+            make_list_friendly(display_pin.associated_interface),
+            make_list_friendly(display_pin.cons_by_pin, 'class'),
+            make_list_friendly(display_pin.cons_by_signal, 'class'),
+            make_list_friendly(display_pin.cons_by_intf, 'class'))
+
+    # the table is displayed
     console = Console()
     console.print(table)
