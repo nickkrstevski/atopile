@@ -153,3 +153,11 @@ def inspect(
     # the table is displayed
     console = Console()
     console.print(table)
+
+# Broken stuff:
+# - Interfaces are not working
+# - Cleanup of the code for loops
+# - More clear of what is available and what is consuming it
+# - Insoect command and mehanics to extract path needs to be built
+# - Make it look fancy
+# - Ability to see from a given perspective (currently defaults to pin)
