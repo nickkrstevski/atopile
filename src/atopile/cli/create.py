@@ -74,6 +74,11 @@ def create(name: str):
 
     make_initial_commit(project_path)
 
+    log.info("Project created successfully.")
+    log.info(f"Project path: {project_path}")
+    # tell the user how to commit the project to the server
+    #TODO: write docs for this and link to them below
+    log.info("To commit the project to the server, follow the guide here: http://docs.atopile.io")
 
 def pascal_case(name: str):
     # Split the name by spaces or underscores
