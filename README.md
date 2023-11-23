@@ -32,7 +32,7 @@ Clone this repo.
 
 Wherever you stick the `venv`, you can create the venv with  `python3.11 -m venv .venv` and then `source .venv/bin/activate`
 
-For cli development (so practically all the time) : `pip install -e ."[dev,test,docs]"`
+For cli development (so practically all the time) : `pip install -e ."`
 
 You'll need `npm` for front-end development (`brew install node`).
 

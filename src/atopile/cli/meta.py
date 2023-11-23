@@ -57,7 +57,7 @@ def update():
             "This won't install any new deps to avoid changing your environment."
         )
         subprocess.run(
-            ['pip install --no-deps -e ."[dev,test,docs]"'],
+            ['pip install --no-deps -e .'],
             check=True,
             shell=True,
             cwd=str(get_source_project_root().resolve().absolute()),

@@ -70,14 +70,14 @@ cli-lint:
   stage: test
   image: python:latest
   script:
-    - pip install -e ."[dev,test,docs]"
+    - pip install -e .
     - ruff src/atopile
 
 cli-test:
   stage: test
   image: python:latest
   script:
-    - pip install -e ."[dev,test,docs]"
+    - pip install -e .
     - pytest
   artifacts:
     paths:

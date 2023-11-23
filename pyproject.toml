@@ -9,9 +9,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = ""
 authors = [
-    { name = "Matthew Wildoer", email = "mawildoer@gmail.com" },
-    { name = "Timothee Peter", email = "timothee.peter@mac.com" },
-    { name = "Narayan Powderly", email = "napowderly@gmail.com" },
+    { name = "Matthew Wildoer", email = "matt@atopile.io" },
+    { name = "Timothee Peter", email = "tim@atopile.io" },
+    { name = "Narayan Powderly", email = "narayan@atopile.io" },
 ]
 classifiers = [
     "Operating System :: OS Independent",
@@ -40,38 +40,20 @@ dependencies = [
     "semver",
     "rich",
     "gitpython",
-    "easyeda2kicad"
+    "easyeda2kicad",
+    "pytest",
+    "pytest-html",
+    "pytest-datafiles",
+    "pytest-asyncio",
+    "ruff",
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocs-drawio-file >= 1.5.2"
 ]
 dynamic = ["version"]
 
 [project.urls]
 Homepage = "http://gitlab.atopile.io/atopile/atopile"
-
-[project.optional-dependencies]
-test = [
-    "pytest",
-    "pytest-html",
-    "pytest-datafiles",
-    "pytest-asyncio",
-    # "coverage[toml] >= 6.5.0,< 8.0",
-    # "mypy ==0.982",
-    # "ruff ==0.0.138",
-    # "black == 23.1.0",
-    # "isort >=5.0.6,<6.0.0",
-
-    # # types
-    # "types-ujson ==5.7.0.1",
-    # "types-orjson ==3.6.2",
-]
-docs = [
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocs-drawio-file >= 1.5.2"
-]
-
-dev = [
-    "ruff",
-]
 
 [project.scripts]
 ato = "atopile.cli.cli:cli"
