@@ -11,6 +11,7 @@ import uuid
 from attrs import define, field, asdict
 
 from atopile.model.accessors import ModelVertexView
+from atopile.model.visitor import wander
 from atopile.model.model import EdgeType, Model, VertexType
 from atopile.targets.netlist.nets import find_nets, NetType
 from atopile.targets.targets import Target, TargetCheckResult, TargetMuster
@@ -97,7 +98,7 @@ class Modules:
     modules: Dict[str, Module]
 
 def make_list_friendly(things: Iterable[str]) -> str:
-    return ", ".join(thing for thing in things)
+    return ",".join(thing for thing in things)
 
 def join_pin_signal_str(pins: str, signals: str) -> str:
     if not pins and signals:
@@ -141,7 +142,7 @@ def _connections_within_module_layer(root_node, port_cluster: List[ModelVertexVi
                 #FIXME:print('selected: ', pin_adjacent.path)
     return neighbor_connected_pins
 
-def process_ports(root_node, nets_id_and_paths, port_cluster: List[ModelVertexView], is_inverted: bool = False) -> Port:
+def process_ports(root_node, nets_port_clusters, nets_id_and_paths, port_cluster: List[ModelVertexView], is_inverted: bool = False) -> Port:
     """
     When provided with a list of all ports associated to a component on the same net,
     this function will return a Port object
@@ -176,25 +177,36 @@ def process_ports(root_node, nets_id_and_paths, port_cluster: List[ModelVertexVi
 
     return Port(pin_direction, [port_id]) #TODO: I actually think this was not necessary based on the netlist standard
 
-def process_block(root_node, nets_id_and_paths, block: ModelVertexView) -> tuple[str, Cell]:
+
+def process_block(root_node, nets_ports_clusters, nets_id_and_paths, block: ModelVertexView) -> tuple[str, Cell]:
         # get all the pins, signals and interfaces part of that block
         return_list = block.get_adjacents("in", EdgeType.part_of)
-        available_list: List[ModelVertexView] = []
+        available_pin_signal_mvv_list: List[ModelVertexView] = []
         for element in return_list:
             element_type = element.vertex_type
-            if (element_type == VertexType.pin or element_type == VertexType.signal or element_type == VertexType.interface):
-                available_list.append(element)
+            if (element_type == VertexType.pin or element_type == VertexType.signal): #TODO: add support for interface
+                available_pin_signal_mvv_list.append(element)
+
         # create pin and signal clusters
         port_clusters: dict[int:List[ModelVertexView]] = {}
-        for port_mvv in available_list:
+        port_already_clusterized: List[str] = []
+        for port_mvv in available_pin_signal_mvv_list:
+            for net_ports_clusters in nets_ports_clusters:
+                for cluster_parent_path in net_ports_clusters:
+                    if cluster_parent_path == port_mvv.parent_path:
+
+
+            # for each port, we generate a map between a uid and all the signals and pins connected to it
             port_cluster: List[int, List[ModelVertexView]] = [0,[]]
             port_cluster[0] += generate_uid_from_path(port_mvv.path)
             port_cluster[1].append(port_mvv)
             connected_neighbors_list = port_mvv.get_adjacents("in", EdgeType.connects_to) + port_mvv.get_adjacents("out", EdgeType.connects_to)
             for con_neighbor in connected_neighbors_list:
+                # if the port is part of the same component, add it to the cluster
                 if con_neighbor.parent_path == port_mvv.parent_path:
                     port_cluster[0] += generate_uid_from_path(con_neighbor.path)
                     port_cluster[1].append(con_neighbor)
+                    print('add port', con_neighbor.ref)
             # placing the clusters in the dict automatically removes duplicates
             port_clusters[port_cluster[0]] = port_cluster[1]
 
@@ -205,6 +217,7 @@ def process_block(root_node, nets_id_and_paths, block: ModelVertexView) -> tuple
             cluster_name = resolve_port_cluster_name(port_clusters[port_cluster])
 
             named_port_clusters[cluster_name] = port_clusters[port_cluster]
+            print(cluster_name, ' : ', named_port_clusters[cluster_name])
 
         # process the pins, ...
         processed_port_clusters = {}
@@ -228,6 +241,10 @@ conversion_function = lambda x: x.path
 @define
 class YosysNetlist():
     modules: Modules|None = None
+    """
+    Netlist is currently generated at a depth of a single module.
+    This netlist is used in the context of visualisation through netlistsvg.
+    """
 
     def to_file(self, path: Path) -> None:
 
@@ -248,7 +265,8 @@ class YosysNetlist():
         block_stack:List[ModelVertexView] = []
         port_stack:List[ModelVertexView] = []
         nets_mvvs: List[NetType] = find_nets(model)
-        nets_id_and_paths: Dict[int,List[str]] = field(factory=dict)
+        nets_id_and_paths: Dict[int,List[str]] = []
+        nets_port_clusters: List[Dict[ModelVertexView,List[ModelVertexView]]]
 
         # # for each net, we want a list of port paths as well as a unique identifier used for the netlist generation
         net_paths_list = []
@@ -258,6 +276,12 @@ class YosysNetlist():
             net_uid = generate_uid_from_path(net_paths[0])
             net_paths_list.append((net_uid, net_paths))
         nets_id_and_paths: List[tuple[int,List[str]]] = net_paths_list #TODO: change this to a dict
+
+        for net_mvvs in nets_mvvs:
+            net_clusters = {}
+            for net_mvv in net_mvvs:
+                net_clusters[net_mvv.parent_path].append(net_mvv)
+            nets_port_clusters.append(net_clusters)
 
         # list all the components and modules within the module
         for element in return_list:
@@ -273,13 +297,13 @@ class YosysNetlist():
         port_dict = {}
         for port in port_stack:
             port_list = [port]
-            processed_port = process_ports(root_node, nets_id_and_paths,port_list, True)
+            processed_port = process_ports(root_node, nets_port_clusters, nets_id_and_paths,port_list, True)
             port_dict[port.ref] = processed_port
 
         # building the cell dict out
         cell_dict: dict[str:Cell] = {}
         for block in block_stack:
-            cell = process_block(root_node, nets_id_and_paths, block)
+            cell = process_block(root_node, nets_port_clusters,nets_id_and_paths, block)
             cell_dict[cell[0]] = cell[1]
 
         netlist = YosysNetlist(
