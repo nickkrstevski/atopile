@@ -175,7 +175,7 @@ class ModelVertexView:
         edges = self.get_edges(mode, edge_type)
         return self.from_edges(self.model, mode, edges)
 
-    def get_adjacents_with_edge_types(self, mode: str, edge_type: Union[EdgeType, List]) -> List[Tuple[EdgeType, "ModelVertexView"]]:
+    def get_adjacents_with_edge_types(self, mode: str, edge_type: Union[EdgeType, List]) -> Iterable[Tuple[EdgeType, "ModelVertexView"]]:
         edges = self.get_edges(mode, edge_type)
         return zip((EdgeType(e["type"]) for e in edges), self.from_edges(self.model, mode, edges))
 
