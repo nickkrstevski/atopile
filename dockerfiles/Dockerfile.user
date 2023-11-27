@@ -37,4 +37,8 @@ RUN mkdir -p /tmp/atopile
 # TODO: install from package instead of source
 COPY README.md pyproject.toml LICENSE MANIFEST.in package*.json src/ /tmp/atopile/
 
+# install easyeda2kicad.py beforehand to avoid installing the unpatched package first
+RUN git clone --branch add_ato_support https://github.com/napowderly/easyeda2kicad.py.git /tmp/easyeda2kicad.py
+RUN python3.11 -m pip install /tmp/easyeda2kicad.py
+
 RUN python3.11 -m pip install /tmp/atopile
