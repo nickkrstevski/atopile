@@ -1,0 +1,13 @@
+# an even larger image, for end users, that's bundled with atopile
+
+FROM atopile/dev:latest
+
+# so we can spec the version number from the command line
+ARG SETUPTOOLS_SCM_PRETEND_VERSION
+
+RUN mkdir -p /tmp/atopile
+
+# TODO: install from package instead of source
+COPY README.md pyproject.toml LICENSE MANIFEST.in package*.json src/ /tmp/atopile/
+
+RUN python3.11 -m pip install /tmp/atopile
