@@ -43,7 +43,7 @@ docker-ci-build:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   script:
-    - export CI_COMMIT_TAG="v0.0.0.dummy"
+    - export CI_COMMIT_TAG="v0.0.0.dev0"
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/dockerfiles/Dockerfile.ci"
