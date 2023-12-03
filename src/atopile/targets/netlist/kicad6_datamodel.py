@@ -5,19 +5,21 @@ from attrs import define, field
 
 @define
 class KicadField:
+    """KV pair"""
     name: str  # eg value
     value: str  # eg 10 Ohms
-
 
 @define
 class KicadPin:
     """
     eg. (pin (num "1") (name "") (type "passive"))
     """
+    name: str
+    type: str
 
-    num: str
-    name: str = ""
-    type: str = ""
+    @property
+    def num(self) -> str:
+        return self.name
 
 
 @define
@@ -62,7 +64,7 @@ class KicadComponent:
     """
     eg.
     (comp (ref "R4")
-      (value "R")
+      (value "5R")
       (libsource (lib "Device") (part "R") (description "Resistor"))
       (property (name "Sheetname") (value ""))
       (property (name "Sheetfile") (value "example.kicad_sch"))
@@ -81,26 +83,14 @@ class KicadComponent:
     sheetpath: KicadSheetpath = field(factory=KicadSheetpath)
 
 
+@define
 class KicadNode:
     """
     eg. (node (ref "R1") (pin "1") (pintype "passive"))
     """
-
-    def __init__(self, component: KicadComponent, pin: KicadPin) -> None:
-        self._component = component
-        self._pin = pin
-
-    @property
-    def ref(self) -> str:
-        return self._component.ref
-
-    @property
-    def pin(self) -> str:
-        return self._pin.num
-
-    @property
-    def pintype(self) -> str:
-        return self._pin.type
+    ref: str
+    pin: str
+    pintype: str = "stereo"
 
 
 @define

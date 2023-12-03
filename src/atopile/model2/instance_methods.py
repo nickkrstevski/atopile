@@ -63,7 +63,7 @@ def get_instance_key(
         default_keys = ("mpn", "value", "footprint")
 
     try:
-        keying_values: str = instance.children.get("__keys__")
+        keying_values: str = instance.children["__keys__"]
     except KeyError:
         keys = default_keys
     else:
@@ -136,3 +136,8 @@ def am_in_interface(instance: Instance) -> bool:
         if match_interfaces(parent):
             return True
     return False
+
+
+def get_address(instance: Instance) -> dm1.AddrStr:
+    """Get the address of an instance."""
+    return str(instance.ref)
