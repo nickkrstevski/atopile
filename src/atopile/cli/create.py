@@ -58,7 +58,7 @@ def create(name: str, blank: bool):
     rename_files(project_dir, module_name)
 
     # Update ato.yaml in the cloned project path
-    ato_yaml_path = project_path / "elec/src/ato.yaml"
+    ato_yaml_path = project_path / "ato.yaml"
 
     with open(ato_yaml_path, "r") as stream:
         data = yaml.safe_load(stream)
@@ -68,7 +68,7 @@ def create(name: str, blank: bool):
     data["builds"]["default"]["root-node"] = f"{file_name}.ato:{module_name}"
 
     # Write the modified YAML file back
-    with open(project_path / "elec/src/ato.yaml", "w") as stream:
+    with open(project_path / "ato.yaml", "w") as stream:
         yaml.safe_dump(data, stream, default_flow_style=False)
 
 
@@ -80,18 +80,18 @@ def create(name: str, blank: bool):
 
     make_initial_commit(project_path)
 
-    # After all changes are done locally, create a new repo on GitLab
-    new_repo_url = (
-        f"https://gitlab.atopile.io/atopile/{project_name}.git"
-    )  # Placeholder URL
-    try:
-        # Now, change the remote URL to the new repository and push the changes
-        push_to_new_repo(project_path, new_repo_url)
-    except Exception as e:
-        log.error(f"Failed to push to new repository: {e}")
-        log.info(
-            "We recommend you find a new home for your project and push it there manually."
-        )
+    # # After all changes are done locally, create a new repo on GitLab
+    # new_repo_url = (
+    #     f"https://gitlab.atopile.io/atopile/{project_name}.git"
+    # )  # Placeholder URL
+    # try:
+    #     # Now, change the remote URL to the new repository and push the changes
+    #     push_to_new_repo(project_path, new_repo_url)
+    # except Exception as e:
+    #     log.error(f"Failed to push to new repository: {e}")
+    #     log.info(
+    #         "We recommend you find a new home for your project and push it there manually."
+    #     )
 
 
 def pascal_case(name: str):
