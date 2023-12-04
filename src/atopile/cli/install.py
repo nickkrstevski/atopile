@@ -1,28 +1,55 @@
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
+import yaml
 
 import click
-from git import Repo
+from git import GitCommandError, Repo
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
+def install_dependency(module_name: str, top_level_path: Path):
+    modules_path = top_level_path / ".ato" / "modules"
+    modules_path.mkdir(parents=True, exist_ok=True)
+    clone_url = f"https://gitlab.atopile.io/packages/{module_name}"
+    os.system(f"git clone {clone_url} {modules_path / module_name}")
+
+def install_dependencies_from_yaml(top_level_path: Path):
+    ato_yaml_path = top_level_path / "ato.yaml"
+    if not ato_yaml_path.exists():
+        logging.error("ato.yaml not found at the top level of the repo")
+        return
+
+    with ato_yaml_path.open('r') as file:
+        data = yaml.safe_load(file) or {}
+
+    dependencies = data.get('lib-deps', [])
+    for module_name in dependencies:
+        install_dependency(module_name, top_level_path)
 
 @click.command()
+@click.argument('module_name', required=False)
 @click.option('--jlcpcb', required=False, help='JLCPCB component ID')
-def install(jlcpcb: str):
-    """
-    Install a component from EasyEDA to the local library. Using LCSC
-    """
-    # Example of running a simple command like 'ls' on Unix or 'dir' on Windows
-    # check that component id is valid, must start with a C and then be all numbers
-    if jlcpcb is not None:
-        install_jlcpcb(jlcpcb)
-    else:
-        log.error("Only --JLCPCB <JLCPN> is supported at this time")
+def install(module_name: str, jlcpcb: str):
+    try:
+        repo = Repo(".", search_parent_directories=True)
+        top_level_path = Path(repo.working_tree_dir)
+
+        if module_name:
+            install_dependency(module_name, top_level_path)
+            add_dependency_to_ato_yaml(top_level_path, module_name)
+        elif jlcpcb:
+            install_jlcpcb(jlcpcb)
+        else:
+            install_dependencies_from_yaml(top_level_path)
+
+    except GitCommandError:
+        logging.error("Not a git repository (or any of the parent directories)")
         sys.exit(1)
+
 
 def install_jlcpcb(component_id: str):
 
@@ -68,3 +95,21 @@ def install_jlcpcb(component_id: str):
         print("Command executed successfully")
     else:
         print("Command failed")
+
+def add_dependency_to_ato_yaml(top_level_path: Path, module_name: str):
+    ato_yaml_path = top_level_path / "ato.yaml"
+    if not ato_yaml_path.exists():
+        logging.error("ato.yaml not found at the top level of the repo")
+        return
+
+    with ato_yaml_path.open('r') as file:
+        data = yaml.safe_load(file) or {}
+
+    # Add module to dependencies, avoiding duplicates
+    dependencies = data.get('lib-deps', [])
+    if module_name not in dependencies:
+        dependencies.append(module_name)
+        data['lib-deps'] = dependencies
+
+        with ato_yaml_path.open('w') as file:
+            yaml.safe_dump(data, file, default_flow_style=False)
