@@ -1,5 +1,3 @@
-"""CLI command definition for `ato create`."""
-
 import logging
 import os
 import sys
@@ -7,121 +5,99 @@ from pathlib import Path
 
 import click
 import yaml
-from git import Repo
+from caseconverter import kebabcase, pascalcase
+from git import InvalidGitRepositoryError, Repo
+from .install import add_dependency_to_ato_yaml
 
+# Set up logging
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
+# Constants
+PROJECT_BASE_URL = "https://gitlab.atopile.io/community-projects"
+MODULES_BASE_URL = "https://gitlab.atopile.io/packages"
+PROJECT_TEMPLATE_URL = "https://gitlab.atopile.io/atopile/atopile-project-template.git"
+MODULES_TEMPLATE_URL = "https://gitlab.atopile.io/packages/module-template.git"
+MODULES_DIR = ".ato/modules"
 
 @click.command()
 @click.argument("name")
-@click.option("--blank", is_flag=True)
-def create(name: str, blank: bool):
+def create(name: str):
     """
-    Create a new project from the atopile project template. eg. `ato create my_project`
+    Create a new project or module. If within a repo, creates a module.
+    Otherwise, creates a new project.
     """
-    # Resolve the absolute path for the name argument
-    project_path = Path(name).resolve()
-    project_name = project_path.name
-    project_dir = project_path.parent
+    project_type, project_path, top_level_dir = determine_project_type_and_path(name)
+    clone_project_template(project_type, project_path)
 
-    module_name = pascal_case(project_name)
-    file_name = snake_case(project_name)
+    if project_type == 'module':
+        project_path, new_repo_url = init_module(project_path, top_level_dir, name)
+    else:
+        project_path, new_repo_url = init_project(project_path, top_level_dir, name)
 
-    log.info(f"Project name: {project_name}")
-    log.info(f"Project directory: {project_dir}")
+    # push_to_new_repo(project_path, new_repo_url)
 
-    if project_path.exists():
-        log.error(f"Directory {project_path} already exists. Aborting.")
-        sys.exit(1)
+    if project_type == 'module':
+        logging.log(msg=f"New module created at {MODULES_BASE_URL}/{name}", level=logging.INFO)
+    else:
+        logging.log(msg=f"New project created at {PROJECT_BASE_URL}/{name}", level=logging.INFO)
 
-    # Clone the project template into the project directory
-    project_template_url = (
-        "https://gitlab.atopile.io/atopile/atopile-project-template.git"
-    )
-    log.info("Cloning project template from " + project_template_url)
-    project_repo = Repo.clone_from(url=project_template_url, to_path=project_path)
-
-    log.info("Updating component library submodules")
-    for submodule in project_repo.submodules:
-        try:
-            submodule.update(init=True)
-            sub_repo = submodule.module()
-            sub_repo.git.reset(hard=True)
-            log.info(f"Submodule {submodule.name} updated successfully.")
-        except Exception as e:
-            log.error(f"Failed to update submodule {submodule.name}: {e}")
-
-        log.info("Renaming files and updating ato.yaml")
-
-    # Rename files in the cloned project path
-    rename_files(project_dir, module_name)
-
-    # Update ato.yaml in the cloned project path
-    ato_yaml_path = project_path / "elec/src/ato.yaml"
-
-    with open(ato_yaml_path, "r") as stream:
-        data = yaml.safe_load(stream)
-
-    # Modify the 'root-file' and 'root-node' keys
-    data["builds"]["default"]["root-file"] = f"{file_name}.ato"
-    data["builds"]["default"]["root-node"] = f"{file_name}.ato:{module_name}"
-
-    # Write the modified YAML file back
-    with open(project_path / "elec/src/ato.yaml", "w") as stream:
-        yaml.safe_dump(data, stream, default_flow_style=False)
-
-
-    # If blank is True, update the content of the .ato file to a blank module
-    if blank:
-        log.info("Blank project selected. Removing template code.")
-        with open(project_path / f"elec/src/{file_name}" , "w") as stream:
-            stream.write(f"module {project_name}:\n")
-
-    make_initial_commit(project_path)
-
-    # After all changes are done locally, create a new repo on GitLab
-    new_repo_url = (
-        f"https://gitlab.atopile.io/atopile/{project_name}.git"
-    )  # Placeholder URL
+def determine_project_type_and_path(name):
     try:
-        # Now, change the remote URL to the new repository and push the changes
-        push_to_new_repo(project_path, new_repo_url)
-    except Exception as e:
-        log.error(f"Failed to push to new repository: {e}")
-        log.info(
-            "We recommend you find a new home for your project and push it there manually."
-        )
+        repo = Repo(".", search_parent_directories=True)
+        top_level_dir = Path(repo.git.rev_parse("--show-toplevel"))
+        project_type = 'module'
+        project_path = top_level_dir / ".ato" / "modules" / kebabcase(name)
+        log.info("Detected existing ato project. Creating a module.")
+    except InvalidGitRepositoryError:
+        project_type = 'project'
+        project_path = Path(kebabcase(name)).resolve()
+        top_level_dir = project_path.parent
+        log.info("No ato project detected. Creating a new project.")
+    return project_type, project_path, top_level_dir
 
+def clone_project_template(project_type, project_path):
+    template_url = MODULES_TEMPLATE_URL if project_type == 'module' else PROJECT_TEMPLATE_URL
+    # if project_path.exists():
+    #     log.error(f"Directory {project_path} already exists. Aborting.")
+    #     sys.exit(1)
+    log.info(f"Cloning from {template_url}")
+    Repo.clone_from(url=template_url, to_path=project_path)
 
-def pascal_case(name: str):
-    # Split the name by spaces or underscores
-    words = name.replace("_", " ").split()
-    # Capitalize the first letter of each word and join them together
-    return "".join(word.capitalize() for word in words)
+def init_module(module_path, top_level_dir, name):
+    # Module-specific initialization logic
+    new_repo_url = f"{MODULES_BASE_URL}/{name}.git"
 
+    # Add dependency to ato.yaml
+    add_dependency_to_ato_yaml(top_level_dir, name)
 
-def snake_case(name: str):
-    # Split the name by spaces or underscores
-    words = name.replace(" ", "_").split()
-    # Lowercase the first letter of each word and join them together
-    return "_".join(word.lower() for word in words)
+    # Add to projects gitignore
+    with open(top_level_dir / '.gitignore', 'a') as gitignore:
+        gitignore.write(f'\n{name}/\n')
 
+    return module_path, new_repo_url
 
-def rename_files(project_dir, new_base_name):
-    # Define the path to the directory containing the files
-    repo_path = Path(project_dir)
+def init_project(project_path, top_level_dir, name):
+    """
+    Initialize a new project.
+    """
+    project_name = kebabcase(name)
+
+    # Create project directory and any necessary files
+    project_path.mkdir(parents=True, exist_ok=True)
+
+    # Rename layout files
 
     # Mapping of old file names to new file names
     files_to_rename = {
-        "atopile-project-template.kicad_pcb": f"{new_base_name}.kicad_pcb",
-        "atopile-project-template.kicad_prl": f"{new_base_name}.kicad_prl",
-        "atopile-project-template.kicad_pro": f"{new_base_name}.kicad_pro",
-        "template_code.ato": f"{new_base_name}.ato",
+        "atopile-project-template.kicad_pcb": f"{project_name}.kicad_pcb",
+        "atopile-project-template.kicad_sch": f"{project_name}.kicad_sch",
+        "atopile-project-template.kicad_pro": f"{project_name}.kicad_pro",
+        "template_code.ato": f"{project_name}.ato",
     }
 
     # Walk through all files in the directory and its subdirectories
-    for dirpath, dirnames, filenames in os.walk(repo_path):
+    for dirpath, dirnames, filenames in os.walk(project_path):
         for filename in filenames:
             if filename in files_to_rename:
                 old_path = Path(dirpath) / filename
@@ -130,24 +106,51 @@ def rename_files(project_dir, new_base_name):
                 old_path.rename(new_path)
                 log.debug(f"Renamed {old_path} to {new_path}")
 
+    kicad_pro_file = project_path / "elec/layout" / f"{project_name}.kicad_pro"
+    with open(kicad_pro_file, 'r') as file:
+        lines = file.readlines()
+
+    with open(kicad_pro_file, 'w') as file:
+        for line in lines:
+            if line.strip() == '"netlist": "../../build/default/template_code.net",':
+                line = f'      "netlist": "../../build/default/{project_name}.net",\n'
+            file.write(line)
+
+    # Create initial files and directories for the project
+    # This might include a README, .ato configuration files, etc.
+    # Example:
+    with open(project_path / "README.md", "w") as file:
+        file.write(f"# {project_name}\n")
+        file.write("Project description goes here.\n")
+
+    # Return the local path and the URL for the new project repository
+    new_repo_url = f"git@gitlab.atopile.io:community-projects/{project_name}.git"
+
+    # Update the ato.yaml file with the new project name
+    file_path = project_path / 'ato.yaml'
+    with open(file_path, 'r') as file:
+        data = yaml.safe_load(file)
+
+    module_name = pascalcase(name)
+    data['builds']['default']['entry'] = f'elec/src/{project_name}.ato:{module_name}'
+
+    with open(file_path, 'w') as file:
+        yaml.safe_dump(data, file)
+
+
+    return project_path, new_repo_url
+
 
 def push_to_new_repo(local_repo_path, new_repo_url):
-    repo = Repo(local_repo_path)
-    repo.git.remote("set-url", "origin", new_repo_url)
-
-    # Check the current branch name instead of assuming it's 'master'
-    current_branch = repo.active_branch.name
-
-    # Push the current branch and set it to track the remote branch
-    repo.git.push("origin", current_branch, "-u")
-    log.info(f"Pushed to new repository: {new_repo_url}")
-
-
-def make_initial_commit(repo_path, message="Initial commit"):
-    repo = Repo(repo_path)
-    repo.git.add(A=True)
-    repo.git.commit("-m", message)
-    log.info("Made initial commit")
-
-
-# TODO: add sub module import git submodule add https://gitlab.atopile.io/atopile/modules.git elec/src/modules
+    """
+    Push the local project to the new repository using SSH keys.
+    """
+    try:
+        repo = Repo(local_repo_path)
+        repo.git.remote("set-url", "origin", new_repo_url)
+        current_branch = repo.active_branch.name
+        repo.git.push("origin", current_branch, "-u")
+        log.info(f"Pushed to new repository: {new_repo_url}")
+        return True
+    except Exception as e:
+        log.error(f"Failed to push to new repository: {e}")
