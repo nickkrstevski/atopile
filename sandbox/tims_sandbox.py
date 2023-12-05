@@ -41,14 +41,23 @@ src_code = """
         signal bottom ~ r_bottom.p2
 
         r_total = 10
-        in.current = 1
         in.voltage = 10
         out.voltage = 8
 
-    module Root:
-        power = new Power
+    module Regulator:
+        feedback_vdiv = new VDiv
+        signal v_fb
+        signal v_out
+        feedback_vdiv.r_total = 100000
 
-        vdiv = new VDiv
+    module LM317 from Regulator:
+        v_fb.voltage = 2
+
+    module Root:
+        reg = new LM317
+        reg.v_out.voltage = 4
+
+
 
 """
 
