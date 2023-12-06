@@ -35,7 +35,12 @@ def create(name: str):
     else:
         project_path, new_repo_url = init_project(project_path, top_level_dir, name)
 
-    # push_to_new_repo(project_path, new_repo_url)
+    commit_message = f"Initial commit for {name}"
+    commit_and_push_changes(project_path, commit_message)
+
+    push_to_new_repo(project_path, new_repo_url)
+
+    log.info(f"New project created at {PROJECT_BASE_URL}/{name}")
 
     if project_type == 'module':
         logging.log(msg=f"New module created at {MODULES_BASE_URL}/{name}", level=logging.INFO)
@@ -55,6 +60,12 @@ def determine_project_type_and_path(name):
         top_level_dir = project_path.parent
         log.info("No ato project detected. Creating a new project.")
     return project_type, project_path, top_level_dir
+
+def commit_and_push_changes(repo_path, commit_message):
+    repo = Repo(repo_path)
+    repo.git.add(A=True)  # Adds all changes to the staging area
+    repo.index.commit(commit_message)  # Commits the changes
+    repo.git.push()  # Pushes the commit to the remote repository
 
 def clone_project_template(project_type, project_path):
     template_url = MODULES_TEMPLATE_URL if project_type == 'module' else PROJECT_TEMPLATE_URL
