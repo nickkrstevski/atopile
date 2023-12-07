@@ -9,6 +9,8 @@ from atopile.address import AddrStr
 from atopile.model2.build import Spud
 from atopile.model2.datamodel import Instance
 from atopile.model2.errors import ErrorHandler, HandlerMode
+from atopile.model2.flatten import get_ref_from_instance, get_ref_data_from_instance, data_bubbler
+from atopile.model2.datatypes import Ref
 
 # %%
 
@@ -20,6 +22,8 @@ def make_tree(instance: Instance, tree: rich.tree.Tree = None) -> rich.tree.Tree
     for child_name, child in instance.children.items():
         if isinstance(child, Instance):
             make_tree(child, tree.add(child_name))
+            print(child_name)
+            print(child.children)
         else:
             tree.add(f"{child_name} == {str(child)}")
 
@@ -41,21 +45,16 @@ src_code = """
     component Resistor:
         pin p1
         pin p2
+        value = 312
+        hi = 1
 
-    module Root:
+    module ARoot:
         r1 = new Resistor
         power = new Power
         r1.p1 ~ power.vcc
         r1.p2 ~ power.gnd
 
         vdiv = new VDiv
-
-        pin p1
-        pin p2
-        pin p3
-        pin p4
-
-        p1 ~ p2
 
     module VDiv:
         r_top = new Resistor
@@ -66,7 +65,15 @@ src_code = """
         output ~ r_bottom.p1
         signal bottom ~ r_bottom.p2
 
-        r_top.value = 1000
+        r_top.test = 1000
+        r_top.test2 = 2000
+        r_bottom.smth = 66
+        r_bottom.value = 666
+
+    module Root:
+        a = new ARoot
+        a.vdiv.r_top.value = 2
+        a.vdiv.r_bottom.value = 4
 
 """
 
@@ -77,5 +84,14 @@ spud = Spud(error_handler, (Path("."),))
 #%%
 flat = spud.build_instance_from_text(dedent(src_code).strip(), ("Root",))
 print_tree(make_tree(flat))
+
+# %%
+
+#print(get_ref_from_instance(Ref(('a','vdiv','r_top')), flat))
+
+#print(get_ref_data_from_instance(Ref(('a','vdiv','r_top',)), flat))
+
+print(data_bubbler(flat, Ref(('Root',))))
+
 
 # %%

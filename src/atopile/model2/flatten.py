@@ -11,6 +11,8 @@ from atopile.model2.instance_methods import dfs_with_ref, match_pins_and_signals
 from atopile.model2.datatypes import Ref
 from atopile.model2 import errors
 
+from collections import defaultdict
+
 
 def get_ref_from_instance(ref: Ref, instance: Instance) -> Instance:
     """Get a ref from an instance."""
@@ -18,6 +20,50 @@ def get_ref_from_instance(ref: Ref, instance: Instance) -> Instance:
         instance = instance.children[ref_part]
     return instance
 
+def get_ref_data_from_instance(ref: Ref, instance: Instance) -> Instance:
+    """Get a ref from an instance."""
+    def visit_and_extract_data(abs_ref, ref, child):
+        if len(ref) > 0:
+            print(ref)
+            ret_data = visit_and_extract_data(abs_ref, ref[1:], child.children[ref[0]])
+            print(ret_data)
+            if ref in child.children_from_mods.keys():
+                for element_0, element_1 in child.children_from_mods[ref].items():
+                    ret_data[abs_ref][element_0] = element_1
+        else:
+            bubble_up_data = {}
+            bubble_up_data[abs_ref] = {}
+            for key, value in child.children_from_mods.items():
+                print((key, value))
+                for element_0, element_1 in value.items():
+                    print(element_0, element_1)
+                    bubble_up_data[abs_ref][element_0] = element_1
+            return bubble_up_data
+
+        return ret_data
+        #instance = instance.children[ref[0]]
+    return visit_and_extract_data(ref, ref, instance)
+
+def data_bubbler(instance: Instance, ref=None) -> Instance:
+    """Get a ref from an instance."""
+    ref = instance.ref
+    if instance.children is not None:
+        bubble_dict = {}
+        for child_name, child in instance.children.items():
+            if isinstance(child, Instance):
+                ret_dict = data_bubbler(child, ref)
+            if isinstance(child, dict):
+                for key,value in child.items():
+                    if ret_dict.get(ref+child_name) is not None:
+                        ret_dict[ref+child_name][key] = value
+                    else:
+                        ret_dict[ref+child_name] = {}
+                        ret_dict[ref+child_name][key] = value
+
+            bubble_dict.update(ret_dict)
+        return bubble_dict
+    else:
+        return {}
 
 def build(obj: Object) -> Instance:
     """Build a flat datamodel."""
@@ -127,8 +173,13 @@ def _build(
     # visit all the child params
     # params last, since they might well modify named links in the future
     params = obj.locals_by_type[(str, int)]
+
     for param_ref, value in params:
-        to_mod = get_ref_from_instance(param_ref[:-1], instance)
-        to_mod.children_from_mods[param_ref[-1]] = value
+        print('here', param_ref)
+        if instance.children_from_mods.get(param_ref[:-1]) is not None:
+            instance.children_from_mods[param_ref[:-1]][param_ref[-1]] = value
+            print('in there')
+        else:
+            instance.children_from_mods[param_ref[:-1]] = {param_ref[-1]: value}
 
     return instance
