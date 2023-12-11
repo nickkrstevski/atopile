@@ -35,13 +35,6 @@ def _get_mpn(addr: address.AddrStr) -> Optional[str]:
         log.error("No MPN for for %s", addr)
         return None
 
-    # FIXME: this is a hack we should remove as soon as
-    # we add the generics component selector back in
-    if mpn.startswith("generic_"):
-        footprint = _default_to(atopile.components.get_footprint, addr, "<no-footprint>")
-        value = _default_to(atopile.components.get_value, addr, "<no-value>")
-        return f"{mpn}-{footprint}-{value}"
-
     return mpn
 
 
@@ -234,7 +227,6 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
                 _default_to(atopile.components.get_footprint, component, "<empty>"),
                 mpn,
             )
-
 
     # Print the table
     rich.print(console_table)
