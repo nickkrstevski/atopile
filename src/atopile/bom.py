@@ -216,10 +216,17 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
             # representative component
             component = components_in_group[0]
 
-            designators = ",".join(
-                _default_to(atopile.components.get_designator, component, "?")
-                for component in components_in_group
-            )
+        friendly_designators = ",".join(
+            _default_to(atopile.components.get_designator, component, "?")
+            for component in components_in_group
+        )
+
+        _add_row(
+            _default_to(atopile.components.get_value, component, ""),
+            friendly_designators,
+            _default_to(atopile.components.get_footprint, component, "<empty>"),
+            mpn,
+        )
 
             _add_row(
                 _default_to(atopile.components.get_value, component, ""),
