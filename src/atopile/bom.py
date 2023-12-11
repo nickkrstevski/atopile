@@ -192,6 +192,7 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
                     _default_to(atopile.components.get_footprint, component, "<empty>"),
                     lcsc_pn,
                 )
+
             for component in failed_generation:
                 _add_row(
                     _default_to(atopile.components.get_value, component, ""),
@@ -200,26 +201,31 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
                     "<empty>",
                 )
         elif not mpn:
-            continue  # skip
+            # for components without an MPN, we add a row for each component
+            # this way the user can manually add the MPN as they see fit
+            for component in components_in_group:
+                _add_row(
+                    _default_to(atopile.components.get_value, component, ""),
+                    _default_to(atopile.components.get_designator, component, "<empty>"),
+                    _default_to(atopile.components.get_footprint, component, "<empty>"),
+                    "<empty>",
+                )
         else:
             # representative component
             component = components_in_group[0]
 
+            designators = ",".join(
+                _default_to(atopile.components.get_designator, component, "?")
+                for component in components_in_group
+            )
+
             _add_row(
                 _default_to(atopile.components.get_value, component, ""),
-                _default_to(atopile.components.get_designator, component, "<empty>"),
+                designators,
                 _default_to(atopile.components.get_footprint, component, "<empty>"),
                 mpn,
             )
 
-
-    for component in bom.get(None, []):
-        _add_row(
-            _default_to(atopile.components.get_value, component, ""),
-            _default_to(atopile.components.get_designator, component, "<empty>"),
-            _default_to(atopile.components.get_footprint, component, "<empty>"),
-            "<empty>",
-        )
 
     # Print the table
     rich.print(console_table)
