@@ -14,7 +14,6 @@ log.setLevel(logging.INFO)
 def install_dependency(module_name: str, top_level_path: Path):
     modules_path = top_level_path / ".ato" / "modules"
     modules_path.mkdir(parents=True, exist_ok=True)
-    target_dir = modules_path / module_name
     try:
         repo = Repo(modules_path / module_name)
         log.info(f"{module_name} already exists. pulling latest changes.")
