@@ -119,7 +119,7 @@ def _fetch_suggested_lcsc(key, value, footprint) -> Optional[str]:
     # See if the footprint can be processed
     try:
         lib_package = footprint_to_package_map[footprint]
-    except:
+    except Exception:  # pylint: disable=broad-except
         log.warning(f"LCSC resolver can't handle {footprint}")
         return None
 
