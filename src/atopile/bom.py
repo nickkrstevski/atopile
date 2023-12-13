@@ -15,7 +15,7 @@ from toolz import groupby
 
 import atopile.components
 from atopile.components import get_resistor_lcsc, get_capacitor_lcsc, get_component_data_by_lscs
-from atopile import address, errors
+from atopile import address
 from atopile.instance_methods import all_descendants, match_components
 
 
