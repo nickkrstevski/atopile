@@ -18,7 +18,9 @@ from atopile.components import get_resistor_lcsc, get_capacitor_lcsc, get_compon
 from atopile import address
 from atopile.instance_methods import all_descendants, match_components
 
-log = logging.getLogger("build.bom")
+
+log = logging.getLogger(__name__)
+
 
 GENERIC_RESISTOR = 'generic_resistor'
 GENERIC_CAPACITOR = 'generic_capacitor'
