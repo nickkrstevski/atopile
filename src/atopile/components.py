@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-from atopile import address
+from atopile import address, errors
 from atopile.address import AddrStr
 from atopile.instance_methods import (
     all_descendants,
@@ -90,13 +90,22 @@ def get_component_data_by_lscs(lcsc: str) -> dict:
     return filtered_components.to_dict(orient="records")[0]
 
 
+class MissingData(errors.AtoError):
+    """
+    Raised when a component is missing data in the Basic_Parts.csv file.
+    """
+
+
 def get_mpn(addr: AddrStr) -> str:
     """
     Return the MPN for a component
     """
     # TODO: write me irl
     comp_data = get_data_dict(addr)
-    return comp_data["mpn"]
+    try:
+        return comp_data["mpn"]
+    except KeyError as ex:
+        raise MissingData("$addr has no MPN", title="No MPN", addr=addr) from ex
 
 
 def get_value(addr: AddrStr) -> str:
@@ -104,7 +113,11 @@ def get_value(addr: AddrStr) -> str:
     Return the value for a component
     """
     comp_data = get_data_dict(addr)
-    return comp_data["value"]
+    try:
+        # FIXME: arbitrate the fact that only generics are expected to have values
+        return comp_data["value"]
+    except KeyError as ex:
+        raise MissingData("$addr has no value", title="No Value", addr=addr) from ex
 
 
 def get_footprint(addr: AddrStr) -> str:
@@ -113,8 +126,10 @@ def get_footprint(addr: AddrStr) -> str:
     """
     # TODO: write me irl
     comp_data = get_data_dict(addr)
-    user_footprint_name = comp_data["footprint"]
-    return user_footprint_name
+    try:
+        return comp_data["footprint"]
+    except KeyError as ex:
+        raise MissingData("$addr has no footprint", title="No Footprint", addr=addr) from ex
 
 
 class DesignatorManager:
