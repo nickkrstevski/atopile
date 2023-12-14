@@ -277,13 +277,25 @@ def iter_through_errors(
             yield err_cltr, item
 
 
+<<<<<<< HEAD
 def downgrade(
     func: Callable[..., T],
+=======
+C = TypeVar("C", bound=Callable)
+
+
+def downgrade(
+    func: C,
+>>>>>>> origin/main
     exs: Type | tuple[Type],
     default = None,
     to_level: int = logging.WARNING,
     logger: logging.Logger = log,
+<<<<<<< HEAD
 ) -> Callable[..., T]:
+=======
+) -> C:
+>>>>>>> origin/main
     """
     Return a wrapped version of your function that catches the given exceptions
     and logs their contents as warning, instead returning a default value
@@ -293,7 +305,18 @@ def downgrade(
         try:
             return func(*args, **kwargs)
         except exs as ex:
+<<<<<<< HEAD
             logger.log(to_level, format_error(ex), extra={"markup": True})
+=======
+            logger.log(
+                to_level,
+                format_error(
+                    ex,
+                    logger.isEnabledFor(logging.DEBUG)
+                ),
+                extra={"markup": True}
+            )
+>>>>>>> origin/main
             if isinstance(default, collections.abc.Callable):
                 return default()
             return default

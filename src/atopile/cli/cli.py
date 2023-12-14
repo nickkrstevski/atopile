@@ -1,6 +1,7 @@
 import logging
 
 import click
+<<<<<<< HEAD
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.theme import Theme
@@ -12,6 +13,14 @@ console = Console(
 )
 
 
+=======
+from rich.logging import RichHandler
+
+from atopile.cli.rich_console import console
+
+from . import build, create, install
+
+>>>>>>> origin/main
 FORMAT = "%(message)s"
 logging.basicConfig(
     level="INFO",

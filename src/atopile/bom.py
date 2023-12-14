@@ -3,6 +3,7 @@ This is a terminal target that will generate BoMs
 """
 
 import csv
+import itertools
 import logging
 from collections import OrderedDict, defaultdict
 from io import StringIO
@@ -54,7 +55,7 @@ def generate_designator_map(entry_addr: address.AddrStr) -> str:
     console_table = Table(show_header=True, header_style="bold green")
     console_table.add_column("Des", justify="right")
     console_table.add_column("Name", justify="left")
-    console_table.add_column("Name", justify="right")
+    console_table.add_column("Name", justify="left")
     console_table.add_column("Des", justify="left")
 
     # Populate the tables
@@ -71,10 +72,21 @@ def generate_designator_map(entry_addr: address.AddrStr) -> str:
     )
     sorted_comp_name_dict = OrderedDict(sorted(sorted_comp_name_dict.items()))
 
-    for (s_des, n_comp), (s_comp, n_des) in zip(
+    for row_index, ((s_des, n_comp), (s_comp, n_des)) in enumerate(zip(
         sorted_designator_dict.items(), sorted_comp_name_dict.items()
-    ):
-        console_table.add_row(s_des, n_comp, s_comp, n_des)
+    )):
+        if row_index % 2 == 0:
+            console_table.add_row(
+                f"[bright_black]{s_des}[/bright_black]",
+                f"[bright_black]{n_comp}[/bright_black]",
+                f"[bright_black]{s_comp}[/bright_black]",
+                f"[bright_black]{n_des}[/bright_black]")
+        else:
+            console_table.add_row(
+                f"[white]{s_des}[/white]",
+                f"[white]{n_comp}[/white]",
+                f"[white]{s_comp}[/white]",
+                f"[white]{n_des}[/white]")
 
     # Print the table
     rich.print(console_table)
@@ -174,8 +186,10 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
     writer = csv.DictWriter(csv_table, fieldnames=COLUMNS)
     writer.writeheader()
 
+    bom_row_nb_counter = itertools.count()
     # Help to fill both tables
     def _add_row(value, designator, footprint, mpn):
+        row_nb = next(bom_row_nb_counter)
         writer.writerow(
             {
                 "Comment": value,
@@ -184,7 +198,10 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
                 "LCSC": mpn,
             }
         )
-        console_table.add_row(value, designator, footprint, mpn)
+        if row_nb % 2 == 0:
+            console_table.add_row(f"[bright_black]{value}[/bright_black]", f"[bright_black]{designator}[/bright_black]", f"[bright_black]{footprint}[/bright_black]", f"[bright_black]{mpn}[/bright_black]")
+        else:
+            console_table.add_row(f"[white]{value}[/white]", f"[white]{designator}[/white]", f"[white]{footprint}[/white]", f"[white]{mpn}[/white]")
 
     # Populate the tables
     for mpn, components_in_group in bom.items():
@@ -206,7 +223,11 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
 
             for lcsc_pn, components in generated_lcsc_dict.items():
                 _add_row(
+<<<<<<< HEAD
                     str(get_component_data_by_lscs(lcsc_pn)["value"]),
+=======
+                    str(get_component_data_by_lscs(lcsc_pn)['value']) + ' ' + str(get_component_data_by_lscs(lcsc_pn)['unit']),
+>>>>>>> origin/main
                     ",".join(
                         atopile.components.get_designator(component)
                         for component in components
