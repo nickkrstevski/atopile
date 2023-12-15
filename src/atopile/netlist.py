@@ -7,7 +7,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from toolz import groupby
 
 from atopile import components, nets, errors
-from atopile.address import AddrStr, get_name, get_relative_addr_str
+from atopile.address import AddrStr, get_name, get_relative_addr_str, get_instance_section
 from atopile.instance_methods import (
     all_descendants,
     get_children,
@@ -34,11 +34,24 @@ get_value = errors.downgrade(components.get_value, components.MissingData, defau
 get_footprint = errors.downgrade(components.get_footprint, components.MissingData, default="<help! no footprint>")
 
 
-def generate_uid_from_path(path: str) -> str:
-    """Spits out a uuid in hex from a string"""
+def generate_uid_from_instance_addr_section(path: AddrStr) -> str:
+    """Spits out a uuid in hex from an instance path of a component"""
+    # FIXME: this is a bit confusing. We want to hash the instance section of the path
+    assert get_instance_section(path) is None, "We want the instance section of the"
+    "path only. This function returns None (somewhat confusingly) if it was already"
+    "an instance section"
+
     path_as_bytes = path.encode("utf-8")
     hashed_path = hashlib.blake2b(path_as_bytes, digest_size=16).digest()
     return str(uuid.UUID(bytes=hashed_path))
+
+
+def generate_uid_from_abs_addr(path: AddrStr) -> str:
+    """Spits out a uuid in hex from an absolute address of a component"""
+    instance_section = get_instance_section(path)
+    if instance_section is None:
+        raise ValueError(f"{path} is not an instance address")
+    return generate_uid_from_instance_addr_section(instance_section)
 
 
 class NetlistBuilder:
@@ -104,7 +117,7 @@ class NetlistBuilder:
         sheetpath = (
             KicadSheetpath(  # That's not actually what we want. Will have to fix
                 names=comp_addr,  # TODO: going to have to strip the comp name from this
-                tstamps=generate_uid_from_path(str(comp_addr)),
+                tstamps=generate_uid_from_abs_addr(str(comp_addr)),
             )
         )
 
@@ -120,7 +133,7 @@ class NetlistBuilder:
             value=get_value(comp_addr),
             footprint=_get_footprint(comp_addr),
             libsource=libsource,
-            tstamp=generate_uid_from_path(str(comp_addr)),
+            tstamp=generate_uid_from_abs_addr(str(comp_addr)),
             fields=[],
             sheetpath=sheetpath,
             src_path=comp_addr,

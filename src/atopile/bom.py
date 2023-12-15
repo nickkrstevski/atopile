@@ -223,11 +223,7 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
 
             for lcsc_pn, components in generated_lcsc_dict.items():
                 _add_row(
-<<<<<<< HEAD
-                    str(get_component_data_by_lscs(lcsc_pn)["value"]),
-=======
                     str(get_component_data_by_lscs(lcsc_pn)['value']) + ' ' + str(get_component_data_by_lscs(lcsc_pn)['unit']),
->>>>>>> origin/main
                     ",".join(
                         atopile.components.get_designator(component)
                         for component in components
@@ -271,6 +267,7 @@ def generate_bom(entry_addr: address.AddrStr) -> str:
 
     # Print the table
     rich.print(console_table)
+    
 
     # Return the CSV
     return csv_table.getvalue()
