@@ -1,22 +1,30 @@
 from typing import Any, Iterable, Optional, Callable
 
-from atopile.front_end import lofty, ObjectLayer
+from atopile.front_end import lofty, Instance, ObjectLayer, Equation
 from atopile import address
 from atopile.address import AddrStr
 
 
+def _get_instance(addr: str) -> Instance:
+    """Return the instance at the given address, doing our best to ensure it exists"""
+    obj_cache = lofty._output_cache  # FIXME: this is a hack
+    if addr not in obj_cache:
+        root_addr = address.get_entry(addr)
+        lofty.get_instance_tree(root_addr)
+    return obj_cache[addr]
+
+
 def get_children(addr: str) -> Iterable[AddrStr]:
-    root_addr = address.get_entry(addr)
-    root_instance = lofty.get_instance_tree(root_addr)
-    ref_str = address.get_instance_section(addr)
-
-    nested_instance = root_instance
-    if ref_str:
-        for child_ref in ref_str.split("."):
-            nested_instance = nested_instance.children[child_ref]
-
-    for child in nested_instance.children.values():
+    """Iterate over the children of a given address"""
+    for child in _get_instance(addr).children.values():
         yield child.addr
+
+
+# FIXME: this name is bad
+def get_children_items(addr: str) -> Iterable[tuple[str, AddrStr]]:
+    """Return tuples of all the children of a given address with their names"""
+    for name, child in _get_instance(addr).children.items():
+        yield name, child.addr
 
 
 def get_data_dict(addr: str) -> dict[str, Any]:
@@ -129,3 +137,10 @@ def get_links(addr: AddrStr) -> Iterable[tuple[AddrStr, AddrStr]]:
     links = lofty._output_cache[addr].links
     for link in links:
         yield (link.source.addr, link.target.addr)
+
+
+def get_equations(addr: AddrStr) -> Iterable[Equation]:
+    """Return the equations associated with an instance"""
+    for super_ in lofty._output_cache[addr].supers:
+        for equation in super_.obj_def.equations:
+            yield equation

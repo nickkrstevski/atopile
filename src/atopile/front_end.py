@@ -49,32 +49,6 @@ class Replacement(Base):
     new_super_ref: Ref
 
 
-@define(repr=False)
-class ObjectDef(Base):
-    """
-    Represent the definition or skeleton of an object
-    so we know where we can go to find the object later
-    without actually building the whole file.
-
-    This is mainly because we don't want to hit errors that
-    aren't relevant to the current build - instead leaving them
-    to be hit in the case we're actually building that object.
-    """
-
-    super_ref: Optional[Ref]
-    imports: Mapping[Ref, Import]
-
-    local_defs: Mapping[Ref, "ObjectDef"]
-    replacements: Mapping[Ref, Replacement]
-
-    # attached immediately to the object post construction
-    closure: Optional[tuple["ObjectDef"]] = None  # in order of lookup
-    address: Optional[AddrStr] = None
-
-    def __repr__(self) -> str:
-        return f"<{self.__class__.__name__} {self.address}>"
-
-
 @define
 class Physical(Base):
     """Let's get physical!"""
@@ -99,6 +73,44 @@ class Physical(Base):
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {self.min_val} to {self.max_val} {self.unit}>"
+
+
+@define
+class Equation(Base):
+    """
+    Represent an equation provided by the user.
+
+    Currently this is just a string we sling over to sympy,
+    but in the future we'll wanna parse it.
+    """
+    eqn: str
+
+
+@define(repr=False)
+class ObjectDef(Base):
+    """
+    Represent the definition or skeleton of an object
+    so we know where we can go to find the object later
+    without actually building the whole file.
+
+    This is mainly because we don't want to hit errors that
+    aren't relevant to the current build - instead leaving them
+    to be hit in the case we're actually building that object.
+    """
+
+    super_ref: Optional[Ref]
+    imports: Mapping[Ref, Import]
+
+    local_defs: Mapping[Ref, "ObjectDef"]
+    replacements: Mapping[Ref, Replacement]
+    equations: list[Equation]
+
+    # attached immediately to the object post construction
+    closure: Optional[tuple["ObjectDef"]] = None  # in order of lookup
+    address: Optional[AddrStr] = None
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} {self.address}>"
 
 
 @define(repr=False)
@@ -209,6 +221,7 @@ def make_obj_layer(
         imports={},
         local_defs={},
         replacements={},
+        equations=[],
     )
     return ObjectLayer(
         obj_def=obj_def,
@@ -590,6 +603,7 @@ class Scoop(BaseTranslator):
             imports=imports,
             local_defs=local_defs,
             replacements={},
+            equations=[],
         )
 
         return file_obj
@@ -609,6 +623,7 @@ class Scoop(BaseTranslator):
         local_defs = {}
         imports = {}
         replacements = {}
+        equations = []
         for ref, local in locals_:
             if isinstance(local, ObjectDef):
                 local_defs[ref] = local
@@ -616,6 +631,8 @@ class Scoop(BaseTranslator):
                 imports[ref] = local
             elif isinstance(local, Replacement):
                 replacements[ref] = local
+            elif isinstance(local, Equation):
+                equations.append(local)
             else:
                 raise errors.AtoError(f"Unexpected local type: {type(local)}")
 
@@ -625,11 +642,21 @@ class Scoop(BaseTranslator):
             imports=imports,
             local_defs=local_defs,
             replacements=replacements,
+            equations=equations,
         )
 
         block_name = self.visit_ref_helper(ctx.name())
 
         return KeyOptItem.from_kv(block_name, block_obj)
+
+    def visitEqn_stmt(self, ctx: AtopileParser.Eqn_stmtContext) -> KeyOptMap[Equation]:
+        """Yield an unnamed equation."""
+        eqn_text = ctx.getText()[4:].strip()
+        eqn = Equation(
+            src_ctx=ctx,
+            eqn=eqn_text,
+        )
+        return KeyOptMap.from_kv(None, eqn)
 
     def visitImport_stmt(self, ctx: ap.Import_stmtContext) -> KeyOptMap:
         from_file: str = self.visitString(ctx.string())
@@ -707,7 +734,7 @@ class Scoop(BaseTranslator):
         self, ctx: ap.Simple_stmtContext
     ) -> Iterable[_Sentinel | KeyOptItem]:
         """We have to be selective here to deal with the ignored children properly."""
-        if ctx.retype_stmt() or ctx.import_stmt():
+        if ctx.retype_stmt() or ctx.import_stmt() or ctx.eqn_stmt():
             return super().visitSimple_stmt(ctx)
 
         return KeyOptMap.empty()

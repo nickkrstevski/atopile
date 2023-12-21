@@ -117,3 +117,8 @@ ignore-paths = [
 line-length = 88
 target-version = ['py311']
 extend-exclude = "atopile/parser/"
+
+[tool.pyright]
+exclude = [
+    "**/site-packages/sympy/**",
+]

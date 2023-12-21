@@ -31,11 +31,15 @@ plt.show()
 
 # %%
 # convert our expression to a function
-expr_func = sp.lambdify((p, t), expr, "numpy")
+def unpack_ax0(func):
+    def _wrapper(x):
+        return func(*x)
+    return _wrapper
 
-def expr_func_wrapper(x):
-    return expr_func(x[0], x[1])
+expr_func = unpack_ax0(sp.lambdify((p, t), expr, "numpy"))
+
 
 # %%
-minimize(expr_func_wrapper, x0=[0, 0.1], bounds=[(0, 10), (0.1, 10)])
+minimize(expr_func, x0=[0, 0.1], bounds=[(0, 10), (0.1, 10)])
+
 # %%

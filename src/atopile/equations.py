@@ -1,71 +1,80 @@
-from numbers import Number
-from typing import Iterable, Optional
-
+# %%
 import sympy
 
-from atopile import address
+from numbers import Number
+from typing import Iterable, Optional, Callable
+
+from atopile import address, errors, instance_methods
 from atopile.address import AddrStr
-from atopile.instance_methods import get_children, get_data_dict, get_name
+from atopile.front_end import Physical  # FIXME: this doesn't belong here
 
 
-class DotDict:
-    """This let's you access a dictionary with dot notation."""
+# %%
 
-    def __init__(self, dictionary):
-        self._dict = dictionary
+class _MockInstance:
+    """
+    This exists because the variables are dot-accessed in equations,
+    and we need to put something in place for the objects on path,
+    except the final variable.
+    """
+
+    def __init__(
+        self,
+        mocking: AddrStr,
+        eqn_builder: "EquationBuilder"
+    ) -> None:
+        self.mocking = mocking
+        self.eqn_builder = eqn_builder
 
     def __getattr__(self, key):
-        if key in self._dict:
-            return self._dict[key]
-        return super().__getattribute__(key)
+        abs_addr = address.add_instance(self.mocking, key)
+        if abs_addr in self.eqn_builder.mock_instances:
+            return self.eqn_builder.mock_instances[abs_addr]
 
-    def __setattr__(self, key, value):
-        self.__dict__[key] = value
+        if abs_addr in self.eqn_builder.symbols:
+            return self.eqn_builder.symbols[key]
+
+        if phys := instance_methods.get_data_dict(self.mocking).get(key):
+            if isinstance(phys, Physical):
+                new_symbol = sympy.Symbol(abs_addr.replace(".", "_"), real=True)
+                self.eqn_builder.symbols[abs_addr] = new_symbol
+                return new_symbol
+
+            raise errors.AtoTypeError(f"Cannot use {phys} in equations", addr=abs_addr)
+
+        return super().__getattribute__(key)
 
 
 class EquationBuilder:
     """This guy builds equations."""
-
     def __init__(self) -> None:
         self._entry: Optional[str] = None
-        self._symbols: dict[AddrStr, sympy.Symbol] = {}
-        self._equations: list[sympy.Eq] = []
+        self.mock_instances: dict[AddrStr, _MockInstance] = {}
+        self.symbols: dict[AddrStr, sympy.Symbol] = {}
+        self.equations: list[sympy.Eq] = []
 
-    def visit_instance(self, instance: AddrStr) -> DotDict:
-        """TODO:"""
-        sani_addr = (address.get_instance_section(instance) or "").replace(".", "_")
+    def _visit_instance(self, instance: AddrStr) -> None:
+        """
+        Create a mock instance object; a thin wrapper upon the
+        instance tree so we can readily parse variables from it.
 
-        # first visit children
-        local_symbols: dict[str, sympy.Symbol | DotDict] = {
-            get_name(child): self.visit_instance(child)
-            for child in get_children(instance)
+        This is a recursive function that registers the mock instances
+        withing the EquationBuilder.
+        """
+        local_symbols = {
+            child_name: self._visit_instance(child_addr)
+            for child_name, child_addr in instance_methods.get_children_items(instance)
         }
 
-        # then find symbols in myself
-        for key, value in get_data_dict(instance).items():
-            symbol_key = sani_addr + "_" + key
-            if isinstance(value, Number) or value == "UNKNOWN":
-                assert key not in local_symbols, "duplicate symbol name"
-                self._symbols[address.add_instance(instance, key)] = local_symbols[
-                    key
-                ] = sympy.Symbol(symbol_key)
+        self.mock_instances[instance] = _MockInstance(instance, self)
 
-        # then make equations
-        equation_str = get_data_dict(instance).get("equations")
-        if equation_str is not None:
-            equations = equation_str.split(";")
-        else:
-            equations = []
-
-        for equation in equations:
+        for equation in instance_methods.get_equations(instance):
             eqn = sympy.sympify(equation, evaluate=False, locals=local_symbols)
-            self._equations.append(eqn)
+            self.equations.append(eqn)
             assert isinstance(eqn, sympy.Eq)
             assert eqn.free_symbols.issubset(
-                self._symbols.values()
+                self.symbols.values()
             ), "equation contains unknown symbols"
-
-        return DotDict(local_symbols)
 
     def build(self, root: AddrStr) -> None:
         """Build equations for a given root."""
@@ -74,21 +83,14 @@ class EquationBuilder:
         elif address.get_entry(root) != self._entry:
             raise ValueError("EquationBuilder only supports one entry point")
 
-    def solve(
-        self, known_values: dict[str, Number], solve_for: Iterable[AddrStr]
-    ) -> dict[AddrStr, Number]:
+        # build the mock instance tree
+        self._visit_instance(root)
+
+    def lambdify_for(
+        self, solve_for: AddrStr
+    ) -> Callable[[], Number]:
         """Solve the equation set for everything we can, given a set of known values."""
-        known_symbol_values = {
-            self._symbols[addr]: value for addr, value in known_values.items()
-        }
-
-        substituted_eqs = [eq.subs(known_symbol_values) for eq in self._equations]
-
-        # Determine which variables are still unknown
-        solve_for_symbols = [self._symbols[addr] for addr in solve_for]
-
-        # Solve the equations for the unknowns
-        solutions = sympy.solve(substituted_eqs, solve_for_symbols)
+        solutions = sympy.solve(self.equations, self.symbols[solve_for], dict=True)
 
         # Check the type of the solution and convert to dictionary if necessary
         if isinstance(solutions, list):
@@ -105,3 +107,26 @@ class EquationBuilder:
             for addr, sym in solution_dict.items()
             if isinstance(solution_dict[sym], Number)
         }
+
+# %%
+x = sympy.Symbol("x")
+y = sympy.Symbol("y")
+z = sympy.Symbol("z")
+
+# unused - here for the ride
+a = sympy.Symbol("a")
+b = sympy.Symbol("b")
+
+all_symbols = [x, y, z, a, b]
+
+# %%
+eq = sympy.Eq(x, y + z)
+# %%
+solutions = sympy.solve(eq, x, dict=True)
+assert len(solutions) == 1
+assert len(solutions[0]) == 1
+expr = list(solutions[0].values())[0]
+func = sympy.lambdify(all_symbols, expr, "numpy")
+# %%
+func(1, 2, 3, 4, 5)
+# %%
