@@ -7,7 +7,7 @@ import yaml
 from caseconverter import kebabcase, pascalcase
 from git import InvalidGitRepositoryError, Repo
 
-from .install import install_dependencies_from_yaml, add_dependency_to_ato_yaml
+from .install import install_dependencies_from_yaml, set_dependency_to_ato_yaml
 
 # Set up logging
 log = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ def init_module(module_path, top_level_dir, name):
     new_repo_url = f"{MODULES_BASE_URL}/{name}.git"
 
     # Add dependency to ato.yaml
-    add_dependency_to_ato_yaml(top_level_dir, name)
+    set_dependency_to_ato_yaml(top_level_dir, name)
 
     # Add to projects gitignore
     with open(top_level_dir / ".gitignore", "a") as gitignore:
@@ -118,6 +118,7 @@ def init_project(project_path: Path, top_level_dir, name):
     Initialize a new project.
     """
     project_name = kebabcase(name)
+    module_name = pascalcase(name)
 
     # Create project directory and any necessary files
     project_path.mkdir(parents=True, exist_ok=True)
@@ -140,6 +141,8 @@ def init_project(project_path: Path, top_level_dir, name):
             for line in lines:
                 if "template123" in line:
                     line = line.replace("template123", project_name)
+                if "<template-module-name>" in line:
+                    line = line.replace("<template-module-name>", module_name)
                 f.write(line)
 
     # Rename layout files
@@ -152,7 +155,6 @@ def init_project(project_path: Path, top_level_dir, name):
         renamed_files.append(new_path)
 
     # Update the entrypoint's name
-    module_name = pascalcase(name)
     entry_file = project_path / f"elec/src/{project_name}.ato"
     with open(entry_file, "w") as f:
         f.write(
